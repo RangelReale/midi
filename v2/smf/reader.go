@@ -1,6 +1,7 @@
 package smf
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -64,15 +65,7 @@ func ReadFrom(f io.Reader, opts ...ReadOption) (*SMF, error) {
 	//fmt.Printf("SMF: %#v\n", *rd.SMF)
 
 	err = rd.ReadTracks()
-	if rd.tracksMissing() {
-		return nil, ErrMissing
-	}
-
-	if err == ErrFinished || err == io.EOF {
-		return rd.SMF, nil
-	}
-
-	if err != nil {
+	if !errors.Is(err, io.EOF) {
 		return nil, err
 	}
 
@@ -82,7 +75,7 @@ func ReadFrom(f io.Reader, opts ...ReadOption) (*SMF, error) {
 // newReader returns a smf.Reader
 func newReader(src io.Reader) *reader {
 	rd := &reader{
-		input:           src,
+		input:           &readerCounter{r: src},
 		processedTracks: -1,
 		runningStatus:   runningstatus.NewSMFReader(),
 		SMF:             &SMF{},
@@ -93,10 +86,7 @@ func newReader(src io.Reader) *reader {
 
 // Close closes the internal reader if it is an io.ReadCloser
 func (r *reader) Close() error {
-	if cl, is := r.input.(io.ReadCloser); is {
-		return cl.Close()
-	}
-	return nil
+	return r.input.Close()
 }
 
 func (r *reader) ReadHeader() error {
@@ -124,9 +114,8 @@ type reader struct {
 	*SMF
 	Logger Logger
 
-	input               io.Reader
-	isDone              bool
-	expectChunk         bool
+	input               *readerCounter
+	chunkIsTrack        bool
 	expectedChunkLength uint32
 	runningStatus       runningstatus.Reader
 	processedTracks     int16
@@ -145,12 +134,6 @@ func (r *reader) Track() int16 {
 	return r.processedTracks
 }
 
-func (r *reader) tracksMissing() bool {
-	// allow the last track to skip the endoftrack message
-	//return r.processedTracks+1 < int16(r.numTracks)
-	return int(r.numTracks) > int(r.processedTracks)+1
-}
-
 func (r *reader) ReadTracks() (err error) {
 	var m Message
 	var absTicks int64
@@ -164,6 +147,10 @@ func (r *reader) ReadTracks() (err error) {
 		r.log("message %v", m)
 		//fmt.Printf("message %v\n", m)
 		tr := int(r.Track())
+		if tr > int(r.numTracks)-1 {
+			r.log("ignoring unexpected track %d", tr)
+			continue
+		}
 
 		/*
 			// TODO maybe remove this after lots of tests
@@ -202,20 +189,16 @@ func (r *reader) ReadTracks() (err error) {
 }
 
 // Read reads the next midi message
-// If the file has been read completely, ErrFinished is returned as error.
 func (r *reader) Read() (m Message, err error) {
 	msg, err := r.read()
-	if err == io.EOF && r.tracksMissing() {
-		return m, ErrMissing
+	if errors.Is(err, io.EOF) && r.chunkIsTrack && r.input.count < int(r.expectedChunkLength) {
+		// ignore io.EOF for non-chunk track.
+		return m, errUnexpectedEOF
 	}
 	return msg, err
 }
 
 func (r *reader) read() (m Message, err error) {
-	if r.isDone {
-		return m, ErrFinished
-	}
-
 	if !r.headerIsRead {
 		r.error = r.ReadHeader()
 	}
@@ -226,7 +209,9 @@ func (r *reader) read() (m Message, err error) {
 
 	//fmt.Println("expectChunk", r.expectChunk)
 
-	if r.expectChunk {
+	if r.expectedChunkLength == 0 || uint32(r.input.count) >= r.expectedChunkLength {
+		// Some files have bugs where the actual data size is bigger than what it says in the header.
+		// Any possible will should be handled by following reads.
 		r.readChunk()
 	}
 
@@ -248,21 +233,25 @@ func (r *reader) log(format string, vals ...interface{}) {
 
 func (r *reader) readMThd() (err error) {
 
-	// after the header a chunk should come
-	r.expectChunk = true
-
 	var chunk chunk
+	var chunkSize uint32
 
-	_, err = chunk.ReadHeader(r.input)
-	r.log("reading header of chunk, error: %v", err)
+	chunkSize, err = chunk.ReadHeader(r.input)
+	r.log("reading header of chunk, error: %v [len:%d]", err, chunkSize)
 
 	if err != nil {
 		return
 	}
 
 	if chunk.Type() != "MThd" {
-		r.log("wrong chunker type: %v", chunk.Type())
-		err = errExpectedMthd
+		r.log("wrong chunk type: %v", chunk.Type())
+		err = ErrExpectedMIDIHeader
+		return
+	}
+
+	if chunkSize != headerChunkSize {
+		r.log("invalid header chunk size: expected %d got %d", headerChunkSize, chunkSize)
+		err = fmt.Errorf("%w: invalid header chunk size: expected %d got %d", ErrExpectedMIDIHeader, headerChunkSize, chunkSize)
 		return
 	}
 
@@ -280,8 +269,11 @@ func (r *reader) readChunk() {
 
 	var chunk chunk
 
+	r.chunkIsTrack = false
+	r.input.count = 0
 	r.expectedChunkLength, r.error = chunk.ReadHeader(r.input)
-	r.log("reading header of chunk: %v", r.error)
+	r.log("reading header of chunk: %v [len:%d]", r.error, r.expectedChunkLength)
+	r.input.count = 0
 
 	if r.error != nil {
 		// if we are here, not all tracks have been read, so io.EOF would be an error,
@@ -293,20 +285,24 @@ func (r *reader) readChunk() {
 	// We have a MTrk
 	if chunk.Type() == "MTrk" {
 		r.log("is track chunk")
+		r.chunkIsTrack = true
 		r.processedTracks++
-		r.expectChunk = false
-		// we are done, lets go to the track events
-		return
+
+		if r.expectedChunkLength > 0 {
+			// we are done, lets go to the track events
+			return
+		}
+	} else if r.expectedChunkLength > 0 {
+		// The header is of an unknown type, skip over it.
+		_, r.error = io.CopyN(ioutil.Discard, r.input, int64(r.expectedChunkLength))
+		r.log("skipping chunk: %v", r.error)
+		if r.error != nil {
+			return
+		}
 	}
 
-	// The header is of an unknown type, skip over it.
-	_, r.error = io.CopyN(ioutil.Discard, r.input, int64(r.expectedChunkLength))
-	r.log("skipping chunk: %v", r.error)
-	if r.error != nil {
-		return
-	}
-
-	r.expectChunk = true
+	// read next chunk
+	r.readChunk()
 }
 
 func (r *reader) _readEvent(canary byte) (m Message, err error) {
@@ -374,7 +370,11 @@ func (r *reader) _readEvent(canary byte) (m Message, err error) {
 			m = mm
 
 		default:
-			panic(fmt.Sprintf("must not happen: invalid canary % X", canary))
+			r.log("unknown canary % X", canary)
+			// read 1 byte when unknown message type.
+			typ, typErr := utils.ReadByte(r.input)
+			r.log("read unknown message type: % X, err: %v", typ, typErr)
+			return
 		}
 
 		// on a voice/channel category message with status either given or cached (running status)
@@ -403,17 +403,6 @@ func (r *reader) _readEvent(canary byte) (m Message, err error) {
 
 	if isMetaEndOfTrackMsg {
 		r.log("got end of track")
-
-		// Expect the next chunk midi.
-
-		// TODO check the read length of the track against the length thas has been read
-		// return ErrTruncatedTrack if meta.EndOfTrack comes to early or ErrOverflowingTrack it it comes too late
-		if uint16(r.processedTracks+1) == r.numTracks {
-			r.log("last track has been read")
-			r.isDone = true
-		} else {
-			r.expectChunk = true
-		}
 	}
 
 	r.log("returning: %v", m)
@@ -468,7 +457,7 @@ func (r *reader) parseHeaderData(reader io.Reader) error {
 	case 2:
 		r.format = 2
 	default:
-		return errUnsupportedSMFFormat
+		return fmt.Errorf("%w: format %d", errUnsupportedSMFFormat, format)
 	}
 
 	r.numTracks, err = utils.ReadUint16(reader)

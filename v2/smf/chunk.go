@@ -9,6 +9,10 @@ import (
 	"gitlab.com/gomidi/midi/v2/internal/utils"
 )
 
+const (
+	headerChunkSize = 6
+)
+
 // chunk is a chunk of a SMF file.
 type chunk struct {
 	typ  []byte // must always be 4 bytes long, to avoid conversions everytime, we take []byte here instead of [4]byte

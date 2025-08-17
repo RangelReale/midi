@@ -141,8 +141,8 @@ func TestReadSMF1Missing(t *testing.T) {
 
 	_, err := ReadFrom(bytes.NewReader(SpecSMF1Missing))
 
-	if err != ErrMissing {
-		t.Errorf("expected ErrMissing, got: %#v", err)
+	if err != nil {
+		t.Errorf("unexpected error: %#v", err)
 	}
 
 }
