@@ -28,13 +28,13 @@ const (
 )
 */
 
-func o(base uint8, oct uint8) uint8 {
+func o(base uint8, oct uint8) Note {
 	if oct > 10 {
 		oct = 10
 	}
 
 	if oct == 0 {
-		return base
+		return Note(base)
 	}
 
 	res := base + uint8(12*oct)
@@ -42,66 +42,66 @@ func o(base uint8, oct uint8) uint8 {
 		res -= 12
 	}
 
-	return res
+	return Note(res)
 }
 
 // C returns the key for the MIDI note C in the given octave
-func C(oct uint8) uint8 {
+func C(oct uint8) Note {
 	return o(0, oct)
 }
 
 // Db returns the key for the MIDI note Db in the given octave
-func Db(oct uint8) uint8 {
+func Db(oct uint8) Note {
 	return o(1, oct)
 }
 
 // D returns the key for the MIDI note D in the given octave
-func D(oct uint8) uint8 {
+func D(oct uint8) Note {
 	return o(2, oct)
 }
 
 // Eb returns the key for the MIDI note Eb in the given octave
-func Eb(oct uint8) uint8 {
+func Eb(oct uint8) Note {
 	return o(3, oct)
 }
 
 // E returns the key for the MIDI note E in the given octave
-func E(oct uint8) uint8 {
+func E(oct uint8) Note {
 	return o(4, oct)
 }
 
 // F returns the key for the MIDI note F in the given octave
-func F(oct uint8) uint8 {
+func F(oct uint8) Note {
 	return o(5, oct)
 }
 
 // Gb returns the key for the MIDI note Gb in the given octave
-func Gb(oct uint8) uint8 {
+func Gb(oct uint8) Note {
 	return o(6, oct)
 }
 
 // G returns the key for the MIDI note G in the given octave
-func G(oct uint8) uint8 {
+func G(oct uint8) Note {
 	return o(7, oct)
 }
 
 // Ab returns the key for the MIDI note Ab in the given octave
-func Ab(oct uint8) uint8 {
+func Ab(oct uint8) Note {
 	return o(8, oct)
 }
 
 // A returns the key for the MIDI note A in the given octave
-func A(oct uint8) uint8 {
+func A(oct uint8) Note {
 	return o(9, oct)
 }
 
 // Bb returns the key for the MIDI note Bb in the given octave
-func Bb(oct uint8) uint8 {
+func Bb(oct uint8) Note {
 	return o(10, oct)
 }
 
 // B returns the key for the MIDI note B in the given octave
-func B(oct uint8) uint8 {
+func B(oct uint8) Note {
 	return o(11, oct)
 }
 
@@ -188,6 +188,14 @@ type Note uint8
 
 func (n Note) Interval(o Note) Interval {
 	return Interval(int8(o) - int8(n))
+}
+
+func (n Note) NoteOn(channel, velocity uint8) Message {
+	return NoteOn(channel, n.Value(), velocity)
+}
+
+func (n Note) NoteOff(channel uint8) Message {
+	return NoteOff(channel, n.Value())
 }
 
 func (n Note) Transpose(i Interval) Note {
