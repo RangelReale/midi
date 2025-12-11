@@ -29,23 +29,23 @@ type Driver struct {
 	Err       error
 }
 
-func (d *Driver) String() string {
+func (me *Driver) String() string {
 	return "webmididrv"
 }
 
 // Close closes all open ports. It must be called at the end of a session.
-func (d *Driver) Close() (err error) {
-	d.Lock()
+func (me *Driver) Close() (err error) {
+	me.Lock()
 	var e CloseErrors
 
-	for _, p := range d.opened {
+	for _, p := range me.opened {
 		err = p.Close()
 		if err != nil {
 			e = append(e, err)
 		}
 	}
 
-	d.Unlock()
+	me.Unlock()
 
 	if len(e) == 0 {
 		return nil
@@ -80,34 +80,34 @@ func New() (*Driver, error) {
 	return drv, nil
 }
 
-func (d *Driver) onMIDISuccess() js.Func {
+func (me *Driver) onMIDISuccess() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) != 1 {
 			return "Invalid no of arguments passed"
 		}
 
-		d.inputsJS = args[0].Get("inputs")
-		d.outputsJS = args[0].Get("outputs")
-		d.wg.Done()
+		me.inputsJS = args[0].Get("inputs")
+		me.outputsJS = args[0].Get("outputs")
+		me.wg.Done()
 		return nil
 	})
 }
 
-func (d *Driver) onMIDIFailure() js.Func {
+func (me *Driver) onMIDIFailure() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		d.Err = fmt.Errorf("Could not access the MIDI devices.")
-		d.wg.Done()
+		me.Err = fmt.Errorf("Could not access the MIDI devices.")
+		me.wg.Done()
 		return nil
 	})
 }
 
 // Ins returns the available MIDI input ports
-func (d *Driver) Ins() (ins []drivers.In, err error) {
-	if d.Err != nil {
+func (me *Driver) Ins() (ins []drivers.In, err error) {
+	if me.Err != nil {
 		return nil, err
 	}
 
-	if !d.inputsJS.Truthy() {
+	if !me.inputsJS.Truthy() {
 		return nil, fmt.Errorf("no inputs")
 	}
 
@@ -116,22 +116,22 @@ func (d *Driver) Ins() (ins []drivers.In, err error) {
 	eachIn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		jsport := args[0]
 		var name = jsport.Get("name").String()
-		ins = append(ins, newIn(d, i, name, jsport))
+		ins = append(ins, newIn(me, i, name, jsport))
 		i++
 		return nil
 	})
 
-	d.inputsJS.Call("forEach", eachIn)
+	me.inputsJS.Call("forEach", eachIn)
 	return ins, nil
 }
 
 // Outs returns the available MIDI output ports
-func (d *Driver) Outs() (outs []drivers.Out, err error) {
-	if d.Err != nil {
+func (me *Driver) Outs() (outs []drivers.Out, err error) {
+	if me.Err != nil {
 		return nil, err
 	}
 
-	if !d.outputsJS.Truthy() {
+	if !me.outputsJS.Truthy() {
 		return nil, fmt.Errorf("no outputs")
 	}
 
@@ -140,12 +140,12 @@ func (d *Driver) Outs() (outs []drivers.Out, err error) {
 	eachOut := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		jsport := args[0]
 		var name = jsport.Get("name").String()
-		outs = append(outs, newOut(d, i, name, jsport))
+		outs = append(outs, newOut(me, i, name, jsport))
 		i++
 		return nil
 	})
 
-	d.outputsJS.Call("forEach", eachOut)
+	me.outputsJS.Call("forEach", eachOut)
 
 	return outs, nil
 }
@@ -153,8 +153,8 @@ func (d *Driver) Outs() (outs []drivers.Out, err error) {
 // CloseErrors collects error from closing multiple MIDI ports
 type CloseErrors []error
 
-func (c CloseErrors) Error() string {
-	if len(c) == 0 {
+func (me CloseErrors) Error() string {
+	if len(me) == 0 {
 		return "no errors"
 	}
 
@@ -162,7 +162,7 @@ func (c CloseErrors) Error() string {
 
 	bd.WriteString("the following closing errors occured:\n")
 
-	for _, e := range c {
+	for _, e := range me {
 		bd.WriteString(e.Error() + "\n")
 	}
 

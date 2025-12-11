@@ -104,8 +104,8 @@ var manuIDNames = map[ManufacturerID]string{
 	NonRealTimeID:      "NonRealTimeID",
 }
 
-func (m ManufacturerID) String() string {
-	s, has := manuIDNames[m]
+func (me ManufacturerID) String() string {
+	s, has := manuIDNames[me]
 	if has {
 		return s
 	} else {

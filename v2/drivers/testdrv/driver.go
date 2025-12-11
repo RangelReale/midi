@@ -41,8 +41,8 @@ func New(name string) *Driver {
 	return d
 }
 
-func (f *Driver) Sleep(d time.Duration) {
-	f.now = f.now.Add(d)
+func (me *Driver) Sleep(d time.Duration) {
+	me.now = me.now.Add(d)
 }
 
 // wait until all messages are handled
@@ -52,10 +52,10 @@ func (f *Driver) Wait() {
 }
 */
 
-func (f *Driver) String() string               { return f.name }
-func (f *Driver) Close() error                 { return nil }
-func (f *Driver) Ins() ([]drivers.In, error)   { return []drivers.In{f.in}, nil }
-func (f *Driver) Outs() ([]drivers.Out, error) { return []drivers.Out{f.out}, nil }
+func (me *Driver) String() string               { return me.name }
+func (me *Driver) Close() error                 { return nil }
+func (me *Driver) Ins() ([]drivers.In, error)   { return []drivers.In{me.in}, nil }
+func (me *Driver) Outs() ([]drivers.Out, error) { return []drivers.Out{me.out}, nil }
 
 type in struct {
 	number int
@@ -64,21 +64,21 @@ type in struct {
 	*Driver
 }
 
-func (f *in) String() string          { return f.name }
-func (f *in) Number() int             { return f.number }
-func (f *in) IsOpen() bool            { return f.isOpen }
-func (f *in) Underlying() interface{} { return nil }
+func (me *in) String() string          { return me.name }
+func (me *in) Number() int             { return me.number }
+func (me *in) IsOpen() bool            { return me.isOpen }
+func (me *in) Underlying() interface{} { return nil }
 
-func (f *in) Listen(onMsg func(msg []byte, milliseconds int32), conf drivers.ListenConfig) (stopFn func(), err error) {
+func (me *in) Listen(onMsg func(msg []byte, milliseconds int32), conf drivers.ListenConfig) (stopFn func(), err error) {
 	//fmt.Printf("listeining from in port of %s\n", f.Driver.name)
 
-	f.last = time.Now()
+	me.last = time.Now()
 
 	stopFn = func() {
-		f.stopListening = true
+		me.stopListening = true
 	}
 
-	f.rd = drivers.NewReader(conf, func(m []byte, ms int32) {
+	me.rd = drivers.NewReader(conf, func(m []byte, ms int32) {
 		msg := midi.Message(m)
 
 		if msg.Is(midi.ActiveSenseMsg) && !conf.ActiveSense {
@@ -98,23 +98,23 @@ func (f *in) Listen(onMsg func(msg []byte, milliseconds int32), conf drivers.Lis
 		//	f.wg.Done()
 		//fmt.Println("msg handled")
 	})
-	f.rd.Reset()
+	me.rd.Reset()
 	return stopFn, nil
 }
 
-func (f *in) Close() error {
-	if !f.isOpen {
+func (me *in) Close() error {
+	if !me.isOpen {
 		return nil
 	}
-	f.isOpen = false
+	me.isOpen = false
 	return nil
 }
 
-func (f *in) Open() error {
-	if f.isOpen {
+func (me *in) Open() error {
+	if me.isOpen {
 		return nil
 	}
-	f.isOpen = true
+	me.isOpen = true
 	return nil
 }
 
@@ -125,34 +125,34 @@ type out struct {
 	*Driver
 }
 
-func (f *out) Number() int             { return f.number }
-func (f *out) IsOpen() bool            { return f.isOpen }
-func (f *out) String() string          { return f.name }
-func (f *out) Underlying() interface{} { return nil }
+func (me *out) Number() int             { return me.number }
+func (me *out) IsOpen() bool            { return me.isOpen }
+func (me *out) String() string          { return me.name }
+func (me *out) Underlying() interface{} { return nil }
 
-func (f *out) Close() error {
-	if !f.isOpen {
+func (me *out) Close() error {
+	if !me.isOpen {
 		return nil
 	}
-	f.isOpen = false
+	me.isOpen = false
 	return nil
 }
 
-func (f *out) Send(bt []byte) error {
-	if !f.isOpen {
+func (me *out) Send(bt []byte) error {
+	if !me.isOpen {
 		return drivers.ErrPortClosed
 	}
 
-	if f.stopListening {
+	if me.stopListening {
 		return nil
 	}
 
-	dur := f.now.Sub(f.last)
+	dur := me.now.Sub(me.last)
 	ts_ms := int32(dur.Milliseconds())
-	f.last = f.now
+	me.last = me.now
 	//f.wg.Add(1)
 	//fmt.Printf("message added % X (len %v) at [%v] in driver %q\n", bt, len(bt), ts_ms, f.Driver.name)
-	f.rd.EachMessage(bt, ts_ms)
+	me.rd.EachMessage(bt, ts_ms)
 	/*
 		f.rd.SetDelta(ts_ms)
 		for _, b := range bt {
@@ -162,10 +162,10 @@ func (f *out) Send(bt []byte) error {
 	return nil
 }
 
-func (f *out) Open() error {
-	if f.isOpen {
+func (me *out) Open() error {
+	if me.isOpen {
 		return nil
 	}
-	f.isOpen = true
+	me.isOpen = true
 	return nil
 }

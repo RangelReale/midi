@@ -4,8 +4,8 @@ package gm
 
 type DrumKey uint8
 
-func (d DrumKey) Key() uint8 {
-	return uint8(d) + 1
+func (me DrumKey) Key() uint8 {
+	return uint8(me) + 1
 }
 
 const (

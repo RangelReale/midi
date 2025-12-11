@@ -84,7 +84,7 @@ func Parse(bt []byte) (*Manufacturer, error) {
 	return &s, nil
 }
 
-func (s Manufacturer) Checksum() (sum byte) {
+func (me Manufacturer) Checksum() (sum byte) {
 
 	/*
 				1. Convert hex to decimal:
@@ -109,12 +109,12 @@ func (s Manufacturer) Checksum() (sum byte) {
 		        *If the remainder is 0 then the checksum is 0.
 	*/
 
-	var bt = []byte{s.Address[0], s.Address[1], s.Address[2]}
+	var bt = []byte{me.Address[0], me.Address[1], me.Address[2]}
 
-	if s.InfoRequest {
-		bt = append(bt, s.NumReqBytes[0], s.NumReqBytes[1], s.NumReqBytes[2])
+	if me.InfoRequest {
+		bt = append(bt, me.NumReqBytes[0], me.NumReqBytes[1], me.NumReqBytes[2])
 	} else {
-		bt = append(bt, s.SendingData...)
+		bt = append(bt, me.SendingData...)
 	}
 
 	var su int32
@@ -132,31 +132,31 @@ func (s Manufacturer) Checksum() (sum byte) {
 	return byte(128 - rem)
 }
 
-func (s Manufacturer) SysEx() []byte {
+func (me Manufacturer) SysEx() []byte {
 	var bf bytes.Buffer
 
 	bf.WriteByte(0xF0)
-	bf.WriteByte(byte(s.ManufacturerID))
-	bf.WriteByte(s.DeviceID)
-	bf.WriteByte(s.ModelID)
-	if s.InfoRequest {
+	bf.WriteByte(byte(me.ManufacturerID))
+	bf.WriteByte(me.DeviceID)
+	bf.WriteByte(me.ModelID)
+	if me.InfoRequest {
 		bf.WriteByte(0x11)
 	} else {
 		bf.WriteByte(0x12)
 	}
-	bf.WriteByte(s.Address[0])
-	bf.WriteByte(s.Address[1])
-	bf.WriteByte(s.Address[2])
+	bf.WriteByte(me.Address[0])
+	bf.WriteByte(me.Address[1])
+	bf.WriteByte(me.Address[2])
 
-	if s.InfoRequest {
-		bf.WriteByte(s.NumReqBytes[0])
-		bf.WriteByte(s.NumReqBytes[1])
-		bf.WriteByte(s.NumReqBytes[2])
+	if me.InfoRequest {
+		bf.WriteByte(me.NumReqBytes[0])
+		bf.WriteByte(me.NumReqBytes[1])
+		bf.WriteByte(me.NumReqBytes[2])
 	} else {
-		bf.Write(s.SendingData)
+		bf.Write(me.SendingData)
 	}
 
-	bf.WriteByte(s.Checksum())
+	bf.WriteByte(me.Checksum())
 
 	bf.WriteByte(0xF7)
 

@@ -28,85 +28,85 @@ type out struct {
 }
 
 // IsOpen returns wether the port is open
-func (o *out) IsOpen() (open bool) {
-	o.RLock()
-	open = o.isOpen
-	o.RUnlock()
+func (me *out) IsOpen() (open bool) {
+	me.RLock()
+	open = me.isOpen
+	me.RUnlock()
 	return
 }
 
 // Send writes a MIDI message to the MIDI output port
 // If the output port is closed, it returns midi.ErrClosed
-func (o *out) Send(b []byte) error {
-	o.RLock()
-	if !o.isOpen {
-		o.RUnlock()
+func (me *out) Send(b []byte) error {
+	me.RLock()
+	if !me.isOpen {
+		me.RUnlock()
 		return drivers.ErrPortClosed
 	}
-	o.RUnlock()
+	me.RUnlock()
 
-	o.running.EachMessage(b, 0)
-	b = o.bf.Bytes()
-	o.bf.Reset()
+	me.running.EachMessage(b, 0)
+	b = me.bf.Bytes()
+	me.bf.Reset()
 
 	var arr = make([]interface{}, len(b))
 	for i, bt := range b {
 		arr[i] = bt
 	}
 
-	o.jsport.Call("send", js.ValueOf(arr))
+	me.jsport.Call("send", js.ValueOf(arr))
 	return nil
 }
 
 // Underlying returns the underlying driver. Here it returns the js output port.
-func (o *out) Underlying() interface{} {
-	return o.jsport
+func (me *out) Underlying() interface{} {
+	return me.jsport
 }
 
 // Number returns the number of the MIDI out port.
 // Note that with rtmidi, out and in ports are counted separately.
 // That means there might exists out ports and an in ports that share the same number
-func (o *out) Number() int {
-	return o.number
+func (me *out) Number() int {
+	return me.number
 }
 
 // String returns the name of the MIDI out port.
-func (o *out) String() string {
-	return o.name
+func (me *out) String() string {
+	return me.name
 }
 
 // Close closes the MIDI out port
-func (o *out) Close() (err error) {
-	if !o.IsOpen() {
+func (me *out) Close() (err error) {
+	if !me.IsOpen() {
 		return nil
 	}
 
-	o.Lock()
-	defer o.Unlock()
-	o.isOpen = false
-	o.jsport.Call("close")
+	me.Lock()
+	defer me.Unlock()
+	me.isOpen = false
+	me.jsport.Call("close")
 	return err
 }
 
 // Open opens the MIDI out port
-func (o *out) Open() (err error) {
-	if o.IsOpen() {
+func (me *out) Open() (err error) {
+	if me.IsOpen() {
 		return nil
 	}
 
-	o.driver.Lock()
-	o.bf = bytes.Buffer{}
+	me.driver.Lock()
+	me.bf = bytes.Buffer{}
 	//o.running = runningstatus.NewLiveWriter(&o.bf)
 	var conf drivers.ListenConfig
 	conf.ActiveSense = true
 	conf.SysEx = false
 	conf.TimeCode = true
-	o.running = drivers.NewReader(conf, func(b []byte, ms int32) {
-		o.bf.Write(b)
+	me.running = drivers.NewReader(conf, func(b []byte, ms int32) {
+		me.bf.Write(b)
 	})
-	o.isOpen = true
-	o.jsport.Call("open")
-	o.driver.opened = append(o.driver.opened, o)
-	o.driver.Unlock()
+	me.isOpen = true
+	me.jsport.Call("open")
+	me.driver.opened = append(me.driver.opened, me)
+	me.driver.Unlock()
 	return nil
 }

@@ -8,14 +8,14 @@ type Realtime struct {
 	SubID2  byte
 }
 
-func (r Realtime) SysEx() []byte {
+func (me Realtime) SysEx() []byte {
 	var bf bytes.Buffer
 
 	bf.WriteByte(0xF0)
 	bf.WriteByte(0x7F)
-	bf.WriteByte(r.Channel)
-	bf.WriteByte(r.SubID1)
-	bf.WriteByte(r.SubID2)
+	bf.WriteByte(me.Channel)
+	bf.WriteByte(me.SubID1)
+	bf.WriteByte(me.SubID2)
 
 	bf.WriteByte(0xF7)
 	return bf.Bytes()

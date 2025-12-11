@@ -163,17 +163,17 @@ var intervalNames = map[Interval]string{
 	24: "DoubleOctave",
 }
 
-func (i Interval) String() string {
+func (me Interval) String() string {
 	var down bool
-	if i < 0 {
+	if me < 0 {
 		down = true
-		i = (-1) * i
+		me = (-1) * me
 	}
 
-	i = i % 24
+	me = me % 24
 
 	var bd strings.Builder
-	bd.WriteString(intervalNames[i])
+	bd.WriteString(intervalNames[me])
 
 	if down {
 		bd.WriteString(" down")
@@ -186,36 +186,36 @@ func (i Interval) String() string {
 
 type Note uint8
 
-func (n Note) Interval(o Note) Interval {
-	return Interval(int8(o) - int8(n))
+func (me Note) Interval(o Note) Interval {
+	return Interval(int8(o) - int8(me))
 }
 
-func (n Note) NoteOn(channel, velocity uint8) Message {
-	return NoteOn(channel, n.Value(), velocity)
+func (me Note) NoteOn(channel, velocity uint8) Message {
+	return NoteOn(channel, me.Value(), velocity)
 }
 
-func (n Note) NoteOff(channel uint8) Message {
-	return NoteOff(channel, n.Value())
+func (me Note) NoteOff(channel uint8) Message {
+	return NoteOff(channel, me.Value())
 }
 
-func (n Note) Transpose(i Interval) Note {
-	res := int8(n) + int8(i)
+func (me Note) Transpose(i Interval) Note {
+	res := int8(me) + int8(i)
 	if res < 0 {
 		res = 0
 	}
 	return Note(res)
 }
 
-func (n Note) Value() uint8 {
-	return uint8(n)
+func (me Note) Value() uint8 {
+	return uint8(me)
 }
 
-func (n Note) Base() uint8 {
-	return uint8(n) % 12
+func (me Note) Base() uint8 {
+	return uint8(me) % 12
 }
 
-func (n Note) Name() (name string) {
-	switch n % 12 {
+func (me Note) Name() (name string) {
+	switch me % 12 {
 	case 0:
 		name = "C"
 	case 1:
@@ -247,20 +247,20 @@ func (n Note) Name() (name string) {
 	return name
 }
 
-func (n Note) String() string {
-	name := n.Name()
+func (me Note) String() string {
+	name := me.Name()
 	if name != "" {
-		name += fmt.Sprintf("%v", n.Octave())
+		name += fmt.Sprintf("%v", me.Octave())
 	}
 	return name
 }
 
-func (n Note) Octave() uint8 {
-	return uint8(n / 12)
+func (me Note) Octave() uint8 {
+	return uint8(me / 12)
 }
 
 // Equal returns true if noteX is the same as noteY
 // they may be in different octaves.
-func (n Note) Is(o Note) bool {
-	return n%12 == o%12
+func (me Note) Is(o Note) bool {
+	return me%12 == o%12
 }

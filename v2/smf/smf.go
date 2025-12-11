@@ -16,8 +16,8 @@ type writerLogger struct {
 	wr io.Writer
 }
 
-func (wl *writerLogger) Printf(format string, vals ...interface{}) {
-	fmt.Fprintf(wl.wr, format, vals...)
+func (me *writerLogger) Printf(format string, vals ...interface{}) {
+	fmt.Fprintf(me.wr, format, vals...)
 }
 
 func LogTo(wr io.Writer) Logger {
@@ -49,7 +49,15 @@ func newSMF(format uint16) *SMF {
 
 type SMF struct {
 	// NoRunningStatus is an option for writing to not write running status
-	NoRunningStatus bool
+	NoRunningStatus      bool
+	tempoChangesFinished bool
+	finished             bool
+
+	// format is the SMF file format: SMF0, SMF1 or SMF2.
+	format uint16
+
+	// numTracks is the number of tracks (0 indicates that the number is not set yet).
+	numTracks uint16
 
 	// Logger allows logging when reading or writing
 	Logger Logger
@@ -60,23 +68,15 @@ type SMF struct {
 	// Tracks contain the midi events
 	Tracks []Track
 
-	// format is the SMF file format: SMF0, SMF1 or SMF2.
-	format uint16
-
-	// numTracks is the number of tracks (0 indicates that the number is not set yet).
-	numTracks uint16
-
-	tempoChanges         TempoChanges
-	tempoChangesFinished bool
-	finished             bool
+	tempoChanges TempoChanges
 }
 
-func (s SMF) String() string {
+func (me SMF) String() string {
 	var bd strings.Builder
 
-	bd.WriteString(fmt.Sprintf("#### SMF Format: %v TimeFormat: %v NumTracks: %v ####\n", s.format, s.TimeFormat.String(), len(s.Tracks)))
+	bd.WriteString(fmt.Sprintf("#### SMF Format: %v TimeFormat: %v NumTracks: %v ####\n", me.format, me.TimeFormat.String(), len(me.Tracks)))
 
-	for i, tr := range s.Tracks {
+	for i, tr := range me.Tracks {
 		bd.WriteString(fmt.Sprintf("## TRACK %v ##\n", i))
 
 		for _, ev := range tr {
@@ -91,16 +91,16 @@ func (s SMF) String() string {
 // channel messages are distributed over the tracks by their channels
 // e.g. channel 0 -> track 1, channel 1 -> track 2 etc.
 // and everything else stays in track 0
-func (src SMF) ConvertToSMF1() (dest SMF) {
-	if src.format == 1 {
-		return src
+func (me SMF) ConvertToSMF1() (dest SMF) {
+	if me.format == 1 {
+		return me
 	}
 
 	var channelTracks [16]TrackEvents
 	var metaTrack TrackEvents
 
 	var absTicks int64
-	for _, ev := range src.Tracks[0] {
+	for _, ev := range me.Tracks[0] {
 		absTicks += int64(ev.Delta)
 		var te TrackEvent
 		te.AbsTicks = absTicks
@@ -126,7 +126,7 @@ func (src SMF) ConvertToSMF1() (dest SMF) {
 		lastAbs = ev.AbsTicks
 	}
 
-	dest.TimeFormat = src.TimeFormat
+	dest.TimeFormat = me.TimeFormat
 	dest.format = 1
 
 	metaTarget.Close(0)
@@ -170,8 +170,8 @@ func RecordTo(inport drivers.In, bpm float64, filename string) (stop func() erro
 // RecordFrom records from the given midi in port into a new track.
 // It returns a stop function that must be called to stop the recording.
 // It is up to the user to save the SMF.
-func (s *SMF) RecordFrom(inport drivers.In, bpm float64) (stop func(), err error) {
-	ticks := s.TimeFormat.(MetricTicks)
+func (me *SMF) RecordFrom(inport drivers.In, bpm float64) (stop func(), err error) {
+	ticks := me.TimeFormat.(MetricTicks)
 
 	var tr Track
 
@@ -181,7 +181,7 @@ func (s *SMF) RecordFrom(inport drivers.In, bpm float64) (stop func(), err error
 		_stop()
 		time.Sleep(time.Second)
 		tr.Close(0)
-		s.Add(tr)
+		me.Add(tr)
 		return nil, _err
 	}
 
@@ -189,27 +189,27 @@ func (s *SMF) RecordFrom(inport drivers.In, bpm float64) (stop func(), err error
 		_stop()
 		time.Sleep(time.Second)
 		tr.Close(0)
-		s.Add(tr)
+		me.Add(tr)
 	}, nil
 }
 
-func (s *SMF) TempoChanges() TempoChanges {
-	return s.tempoChanges
+func (me *SMF) TempoChanges() TempoChanges {
+	return me.tempoChanges
 }
 
-func (s *SMF) finishTempoChanges() {
-	if s.tempoChangesFinished {
+func (me *SMF) finishTempoChanges() {
+	if me.tempoChangesFinished {
 		return
 	}
-	sort.Sort(s.tempoChanges)
-	s.calculateAbsTimes()
-	s.tempoChangesFinished = true
+	sort.Sort(me.tempoChanges)
+	me.calculateAbsTimes()
+	me.tempoChangesFinished = true
 }
 
-func (s *SMF) calculateAbsTimes() {
+func (me *SMF) calculateAbsTimes() {
 	var lasttcTick, lasttcTimeMicroSec int64
-	mt := s.TimeFormat.(MetricTicks)
-	for _, tc := range s.tempoChanges {
+	mt := me.TimeFormat.(MetricTicks)
+	for _, tc := range me.tempoChanges {
 		diffTicks := tc.AbsTicks - lasttcTick
 
 		// if the tempo change is at the same tick as the last one, we just copy the time
@@ -218,12 +218,12 @@ func (s *SMF) calculateAbsTimes() {
 			continue
 		}
 
-		prev := s.tempoChanges.TempoChangeAt(tc.AbsTicks - 1)
+		prev := me.tempoChanges.TempoChangeAt(tc.AbsTicks - 1)
 		var prevTime int64
 		if prev != nil {
 			prevTime = prev.AbsTimeMicroSec
 		}
-		prevTempo := s.tempoChanges.TempoAt(tc.AbsTicks - 1)
+		prevTempo := me.tempoChanges.TempoAt(tc.AbsTicks - 1)
 		//fmt.Printf("tc at: %v diff ticks: %v (uint32: %v)\n", tc.AbsTicks, diffTicks, uint32(diffTicks))
 		// calculate time for diffTicks with the help of the last tempo and the MetricTicks
 		tc.AbsTimeMicroSec = prevTime + mt.Duration(prevTempo, uint32(diffTicks)).Microseconds()
@@ -234,10 +234,10 @@ func (s *SMF) calculateAbsTimes() {
 }
 
 // TimeAt returns the absolute time for a given absolute tick (considering the tempo changes)
-func (s *SMF) TimeAt(absTicks int64) (absTimeMicroSec int64) {
-	s.finishTempoChanges()
-	mt := s.TimeFormat.(MetricTicks)
-	prevTc := s.tempoChanges.TempoChangeAt(absTicks - 1)
+func (me *SMF) TimeAt(absTicks int64) (absTimeMicroSec int64) {
+	me.finishTempoChanges()
+	mt := me.TimeFormat.(MetricTicks)
+	prevTc := me.tempoChanges.TempoChangeAt(absTicks - 1)
 	if prevTc == nil {
 		return mt.Duration(120.00, uint32(absTicks)).Microseconds()
 	}
@@ -245,12 +245,12 @@ func (s *SMF) TimeAt(absTicks int64) (absTimeMicroSec int64) {
 }
 
 // NumTracks returns the number of tracks
-func (s *SMF) NumTracks() uint16 {
-	return uint16(len(s.Tracks))
+func (me *SMF) NumTracks() uint16 {
+	return uint16(len(me.Tracks))
 }
 
 // WriteFile writes the SMF to the given filename
-func (s *SMF) WriteFile(file string) error {
+func (me *SMF) WriteFile(file string) error {
 	f, err := os.Create(file)
 
 	if err != nil {
@@ -258,7 +258,7 @@ func (s *SMF) WriteFile(file string) error {
 	}
 
 	//err = s.WriteTo(f)
-	_, err = s.WriteTo(f)
+	_, err = me.WriteTo(f)
 	f.Close()
 
 	if err != nil {
@@ -269,9 +269,9 @@ func (s *SMF) WriteFile(file string) error {
 	return nil
 }
 
-func (s *SMF) Bytes() (data []byte, err error) {
+func (me *SMF) Bytes() (data []byte, err error) {
 	var bf bytes.Buffer
-	_, err = s.WriteTo(&bf)
+	_, err = me.WriteTo(&bf)
 	if err != nil {
 		return
 	}
@@ -279,32 +279,32 @@ func (s *SMF) Bytes() (data []byte, err error) {
 }
 
 // WriteTo writes the SMF to the given writer
-func (s *SMF) WriteTo(f io.Writer) (size int64, err error) {
-	s.numTracks = uint16(len(s.Tracks))
-	if s.numTracks == 0 {
+func (me *SMF) WriteTo(f io.Writer) (size int64, err error) {
+	me.numTracks = uint16(len(me.Tracks))
+	if me.numTracks == 0 {
 		return 0, fmt.Errorf("no track added")
 	}
-	if s.numTracks > 1 && s.format == 0 {
-		s.format = 1
+	if me.numTracks > 1 && me.format == 0 {
+		me.format = 1
 	}
 
-	for i := range s.Tracks {
-		if !s.Tracks[i].IsClosed() {
-			if s.Logger != nil {
-				s.Logger.Printf("track %v is not closed, adding end with delta 0", i)
+	for i := range me.Tracks {
+		if !me.Tracks[i].IsClosed() {
+			if me.Logger != nil {
+				me.Logger.Printf("track %v is not closed, adding end with delta 0", i)
 			}
-			s.Tracks[i].Close(0)
+			me.Tracks[i].Close(0)
 		}
 	}
 
 	//fmt.Printf("numtracks: %v\n", s.numTracks)
-	wr := newWriter(s, f)
+	wr := newWriter(me, f)
 	err = wr.WriteHeader()
 	if err != nil {
 		return 0, fmt.Errorf("could not write header: %v", err)
 	}
 
-	for _, t := range s.Tracks {
+	for _, t := range me.Tracks {
 		for _, ev := range t {
 			//fmt.Printf("written ev: %v\n ", ev)
 			wr.SetDelta(ev.Delta)
@@ -324,32 +324,32 @@ func (s *SMF) WriteTo(f io.Writer) (size int64, err error) {
 	return wr.output.size, nil
 }
 
-func (s *SMF) log(format string, vals ...interface{}) {
-	if s.Logger != nil {
-		s.Logger.Printf(format+"\n", vals...)
+func (me *SMF) log(format string, vals ...interface{}) {
+	if me.Logger != nil {
+		me.Logger.Printf(format+"\n", vals...)
 	}
 }
 
 // Add adds a track to the SMF and returns an error, if the track is not closed.
-func (s *SMF) Add(t Track) error {
-	if s.Logger != nil {
-		s.log("add track %v", len(s.Tracks)+1)
+func (me *SMF) Add(t Track) error {
+	if me.Logger != nil {
+		me.log("add track %v", len(me.Tracks)+1)
 
 		for _, ev := range t {
-			s.log("delta: %v message: %s", ev.Delta, ev.Message)
+			me.log("delta: %v message: %s", ev.Delta, ev.Message)
 		}
 	}
-	s.Tracks = append(s.Tracks, t)
-	if len(s.Tracks) > 1 && s.format == 0 {
-		s.format = 1
+	me.Tracks = append(me.Tracks, t)
+	if len(me.Tracks) > 1 && me.format == 0 {
+		me.format = 1
 	}
 	if !t.IsClosed() {
-		s.log("error: track %v was not closed", len(s.Tracks))
-		return fmt.Errorf("error: track %v was not closed", len(s.Tracks))
+		me.log("error: track %v was not closed", len(me.Tracks))
+		return fmt.Errorf("error: track %v was not closed", len(me.Tracks))
 	}
 	return nil
 }
 
-func (s SMF) Format() uint16 {
-	return s.format
+func (me SMF) Format() uint16 {
+	return me.format
 }

@@ -7,8 +7,8 @@ type Key struct {
 	IsFlat  bool
 }
 
-func (k Key) String() string {
-	return keyStrings[k]
+func (me Key) String() string {
+	return keyStrings[me]
 }
 
 var keyStrings = map[Key]string{}

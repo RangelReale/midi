@@ -21,28 +21,28 @@ func log(s string) {
 
 type inPorts []drivers.In
 
-func (i inPorts) Len() int {
-	return len(i)
+func (me inPorts) Len() int {
+	return len(me)
 }
 
-func (i inPorts) Swap(a, b int) {
-	i[a], i[b] = i[b], i[a]
+func (me inPorts) Swap(a, b int) {
+	me[a], me[b] = me[b], me[a]
 }
 
-func (i inPorts) Less(a, b int) bool {
-	return i[a].Number() < i[b].Number()
+func (me inPorts) Less(a, b int) bool {
+	return me[a].Number() < me[b].Number()
 }
 
 type outPorts []drivers.Out
 
-func (i outPorts) Len() int {
-	return len(i)
+func (me outPorts) Len() int {
+	return len(me)
 }
 
-func (i outPorts) Swap(a, b int) {
-	i[a], i[b] = i[b], i[a]
+func (me outPorts) Swap(a, b int) {
+	me[a], me[b] = me[b], me[a]
 }
 
-func (i outPorts) Less(a, b int) bool {
-	return i[a].Number() < i[b].Number()
+func (me outPorts) Less(a, b int) bool {
+	return me[a].Number() < me[b].Number()
 }
