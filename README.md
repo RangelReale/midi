@@ -134,11 +134,11 @@ func mkSMF() []byte {
 	tr.Add(0, smf.MetaTempo(140))
 	tr.Add(0, smf.MetaInstrument("Brass"))
 	tr.Add(0, midi.ProgramChange(0, gm.Instr_BrassSection.Value()))
-	tr.Add(0, midi.NoteOn(0, midi.Ab(3), 120))
-	tr.Add(clock.Ticks8th(), midi.NoteOn(0, midi.C(4), 120))
+	tr.Add(0, midi.Ab(3).NoteOn(0, 120))  // or midi.NoteOn(0, midi.Ab(3).Value(), 120)
+	tr.Add(clock.Ticks8th(), midi.C(4).NoteOn(0, 120))
 	// duration: a quarter note (96 ticks in our case)
-	tr.Add(clock.Ticks4th()*2, midi.NoteOff(0, midi.Ab(3)))
-	tr.Add(0, midi.NoteOff(0, midi.C(4)))
+	tr.Add(clock.Ticks4th()*2, midi.Ab(3).NoteOff(0)) // or midi.NoteOff(0, midi.Ab(3).Value())
+	tr.Add(0, midi.C(4).NoteOff(0))
 	tr.Close(0)
 
 	// create the SMF and add the tracks
