@@ -26,22 +26,22 @@ type out struct {
 	cmd    *exec.Cmd
 }
 
-func (o *out) fireCmd() error {
-	o.Lock()
-	defer o.Unlock()
-	if o.cmd != nil {
+func (me *out) fireCmd() error {
+	me.Lock()
+	defer me.Unlock()
+	if me.cmd != nil {
 		return fmt.Errorf("already running")
 	}
 
-	o.cmd = midiCatOutCmd(o.number)
-	o.rd, o.wr = io.Pipe()
-	o.cmd.Stdin = o.rd
+	me.cmd = midiCatOutCmd(me.number)
+	me.rd, me.wr = io.Pipe()
+	me.cmd.Stdin = me.rd
 
-	err := o.cmd.Start()
+	err := me.cmd.Start()
 	if err != nil {
-		o.rd = nil
-		o.wr = nil
-		o.cmd = nil
+		me.rd = nil
+		me.wr = nil
+		me.cmd = nil
 		return err
 	}
 
@@ -49,24 +49,24 @@ func (o *out) fireCmd() error {
 }
 
 // IsOpen returns wether the port is open
-func (o *out) IsOpen() (open bool) {
-	o.RLock()
-	open = o.cmd != nil
-	o.RUnlock()
+func (me *out) IsOpen() (open bool) {
+	me.RLock()
+	open = me.cmd != nil
+	me.RUnlock()
 	return
 }
 
 // Send sends a MIDI message to the MIDI output port
 // If the output port is closed, it returns midi.ErrClosed
-func (o *out) Send(b []byte) error {
-	o.Lock()
-	defer o.Unlock()
-	if o.cmd == nil {
+func (me *out) Send(b []byte) error {
+	me.Lock()
+	defer me.Unlock()
+	if me.cmd == nil {
 		fmt.Println("port closed")
 		return drivers.ErrPortClosed
 	}
 	//fmt.Printf("% X\n", b)
-	_, err := fmt.Fprintf(o.wr, "%d %X\n", 0, b)
+	_, err := fmt.Fprintf(me.wr, "%d %X\n", 0, b)
 	//_, err := fmt.Fprintf(o.wr, "%X\n", b)
 	if err != nil {
 		return err
@@ -75,54 +75,54 @@ func (o *out) Send(b []byte) error {
 }
 
 // Underlying returns the underlying driver. Here it returns nil
-func (o *out) Underlying() interface{} {
+func (me *out) Underlying() interface{} {
 	return nil
 }
 
 // Number returns the number of the MIDI out port.
 // Note that with rtmidi, out and in ports are counted separately.
 // That means there might exists out ports and an in ports that share the same number
-func (o *out) Number() int {
-	return o.number
+func (me *out) Number() int {
+	return me.number
 }
 
 // String returns the name of the MIDI out port.
-func (o *out) String() string {
-	return o.name
+func (me *out) String() string {
+	return me.name
 }
 
 // Close closes the MIDI out port
-func (o *out) Close() (err error) {
-	if !o.IsOpen() {
+func (me *out) Close() (err error) {
+	if !me.IsOpen() {
 		return nil
 	}
 
-	o.Lock()
-	defer o.Unlock()
-	o.wr.Close()
-	err = o.cmd.Process.Kill()
-	o.cmd = nil
-	o.rd.Close()
-	o.wr = nil
-	o.rd = nil
+	me.Lock()
+	defer me.Unlock()
+	me.wr.Close()
+	err = me.cmd.Process.Kill()
+	me.cmd = nil
+	me.rd.Close()
+	me.wr = nil
+	me.rd = nil
 	return err
 }
 
 // Open opens the MIDI out port
-func (o *out) Open() (err error) {
-	if o.IsOpen() {
+func (me *out) Open() (err error) {
+	if me.IsOpen() {
 		return nil
 	}
 
-	err = o.fireCmd()
+	err = me.fireCmd()
 
 	if err != nil {
-		return fmt.Errorf("can't open MIDI out port %v (%s): %v", o.number, o, err)
+		return fmt.Errorf("can't open MIDI out port %v (%s): %v", me.number, me, err)
 	}
 
-	o.driver.Lock()
-	o.driver.opened = append(o.driver.opened, o)
-	o.driver.Unlock()
+	me.driver.Lock()
+	me.driver.opened = append(me.driver.opened, me)
+	me.driver.Unlock()
 
 	return nil
 }

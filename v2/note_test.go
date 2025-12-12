@@ -6,8 +6,8 @@ import (
 
 func TestNoteIs(t *testing.T) {
 	var tests = []struct {
-		noteA uint8
-		noteB uint8
+		noteA Note
+		noteB Note
 		equal bool
 	}{
 		{C(5), C(5), true},
@@ -29,8 +29,8 @@ func TestNoteIs(t *testing.T) {
 
 func TestTranspose(t *testing.T) {
 	var tests = []struct {
-		note     uint8
-		expected uint8
+		note     Note
+		expected Note
 		interval Interval
 	}{
 		{C(5), Db(5), MinorSecond},
@@ -104,8 +104,8 @@ func TestTranspose(t *testing.T) {
 
 func TestInterval(t *testing.T) {
 	var tests = []struct {
-		noteA    uint8
-		noteB    uint8
+		noteA    Note
+		noteB    Note
 		expected Interval
 	}{
 		{C(5), Db(5), MinorSecond},
@@ -180,7 +180,7 @@ func TestInterval(t *testing.T) {
 func TestNote(t *testing.T) {
 
 	var tests = []struct {
-		note uint8
+		note Note
 		str  string
 	}{
 		{C(0), "C0"},

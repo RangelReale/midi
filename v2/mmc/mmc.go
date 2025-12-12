@@ -76,8 +76,8 @@ const (
 	ShuttleCmd      Command = 0x47
 )
 
-func (c Command) String() string {
-	switch byte(c) {
+func (me Command) String() string {
+	switch byte(me) {
 	case 0x01:
 		return "StopCmd"
 	case 0x02:
@@ -114,13 +114,13 @@ func (c Command) String() string {
 }
 
 type Message struct {
-	DeviceID byte
-	Command
 	IsResponse bool
-	Data       []byte
+	DeviceID   byte
+	Command
+	Data []byte
 }
 
-func (g *Message) Parse(bt []byte) error {
+func (me *Message) Parse(bt []byte) error {
 	if len(bt) < 5 {
 		return fmt.Errorf("wrong length: %v (must be >= 5)", len(bt))
 	}
@@ -137,48 +137,48 @@ func (g *Message) Parse(bt []byte) error {
 		return fmt.Errorf("wrong last byte")
 	}
 
-	g.DeviceID = bt[2]
+	me.DeviceID = bt[2]
 
 	switch bt[3] {
 	case 0x06:
-		g.IsResponse = false
+		me.IsResponse = false
 		if len(bt) < 7 {
 			return fmt.Errorf("wrong length for command: %v (must be >= 7)", len(bt))
 		}
-		g.Command = Command(bt[4])
+		me.Command = Command(bt[4])
 		if bt[4] >= 0x40 {
 			if len(bt) < 8 {
-				return fmt.Errorf("wrong length for %s command: %v (must be >= 8)", g.Command.String(), len(bt))
+				return fmt.Errorf("wrong length for %s command: %v (must be >= 8)", me.Command.String(), len(bt))
 			}
-			g.Data = bt[5 : len(bt)-2]
+			me.Data = bt[5 : len(bt)-2]
 		}
 	case 0x07:
-		g.IsResponse = true
+		me.IsResponse = true
 		if len(bt) > 5 {
-			g.Data = bt[4 : len(bt)-2]
+			me.Data = bt[4 : len(bt)-2]
 		} else {
-			g.Data = nil
+			me.Data = nil
 		}
 	}
 
 	return nil
 }
 
-func (m Message) String() string {
-	return fmt.Sprintf("MMC device: %v command: %s", m.DeviceID, m.Command.String())
+func (me Message) String() string {
+	return fmt.Sprintf("MMC device: %v command: %s", me.DeviceID, me.Command.String())
 }
 
-func (m Message) SysEx() []byte {
+func (me Message) SysEx() []byte {
 	var bf bytes.Buffer
 	bf.WriteByte(0xF0)
 	bf.WriteByte(0x7F)
-	devID := m.DeviceID
+	devID := me.DeviceID
 	if devID == 0 || devID > 127 {
 		devID = 127
 	}
 	bf.WriteByte(devID)
 	bf.WriteByte(0x06)
-	bf.WriteByte(byte(m.Command))
+	bf.WriteByte(byte(me.Command))
 	bf.WriteByte(0xF7)
 
 	return bf.Bytes()
@@ -196,11 +196,11 @@ type GoTo struct {
 	SubFrame byte
 }
 
-func (g GoTo) SysEx() []byte {
-	return []byte{0xF0, 0x7F, g.DeviceID, 0x06, 0x44, 0x06, 0x01, g.Hour, g.Minute, g.Second, g.Frame, g.SubFrame, 0xF7}
+func (me GoTo) SysEx() []byte {
+	return []byte{0xF0, 0x7F, me.DeviceID, 0x06, 0x44, 0x06, 0x01, me.Hour, me.Minute, me.Second, me.Frame, me.SubFrame, 0xF7}
 }
 
-func (g *GoTo) Parse(bt []byte) error {
+func (me *GoTo) Parse(bt []byte) error {
 	if len(bt) != 13 {
 		return fmt.Errorf("wrong length: %v (must be 13)", len(bt))
 	}
@@ -213,7 +213,7 @@ func (g *GoTo) Parse(bt []byte) error {
 		return fmt.Errorf("wrong byte 1")
 	}
 
-	g.DeviceID = bt[2]
+	me.DeviceID = bt[2]
 
 	if bt[3] != 0x06 {
 		return fmt.Errorf("wrong byte 3")
@@ -231,11 +231,11 @@ func (g *GoTo) Parse(bt []byte) error {
 		return fmt.Errorf("wrong byte 6")
 	}
 
-	g.Hour = bt[7]
-	g.Minute = bt[8]
-	g.Second = bt[9]
-	g.Frame = bt[10]
-	g.SubFrame = bt[11]
+	me.Hour = bt[7]
+	me.Minute = bt[8]
+	me.Second = bt[9]
+	me.Frame = bt[10]
+	me.SubFrame = bt[11]
 
 	if bt[12] != 0xF7 {
 		return fmt.Errorf("wrong byte 12")
@@ -248,11 +248,11 @@ type Identity struct {
 	Channel byte
 }
 
-func (i Identity) SysEx() []byte {
-	return []byte{0xF0, 0x7E, i.Channel, 0x06, 0x01, 0xF7}
+func (me Identity) SysEx() []byte {
+	return []byte{0xF0, 0x7E, me.Channel, 0x06, 0x01, 0xF7}
 }
 
-func (i Identity) Parse(bt []byte) error {
+func (me Identity) Parse(bt []byte) error {
 	//return []byte{0xF0, 0x7E, i.Channel, 0x06, 0x01, 0xF7}
 	if len(bt) != 6 {
 		return fmt.Errorf("wrong length: %v (must be 6)", len(bt))
@@ -266,7 +266,7 @@ func (i Identity) Parse(bt []byte) error {
 		return fmt.Errorf("wrong byte 1")
 	}
 
-	i.Channel = bt[2]
+	me.Channel = bt[2]
 
 	if bt[3] != 0x06 {
 		return fmt.Errorf("wrong byte 3")

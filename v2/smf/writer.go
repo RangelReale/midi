@@ -17,23 +17,23 @@ type wrWrapper struct {
 
 var _ io.Writer = &wrWrapper{}
 
-func (w *wrWrapper) Write(p []byte) (int, error) {
-	s, err := w.wr.Write(p)
-	w.size += int64(s)
+func (me *wrWrapper) Write(p []byte) (int, error) {
+	s, err := me.wr.Write(p)
+	me.size += int64(s)
 	return s, err
 }
 
 func newWriter(s *SMF, output io.Writer) *writer {
 	// setup
-	wr := &writer{}
-	wr.SMF = s
-	wr.output = &wrWrapper{wr: output}
-	wr.currentChunk.SetType([4]byte{byte('M'), byte('T'), byte('r'), byte('k')})
+	me := &writer{}
+	me.SMF = s
+	me.output = &wrWrapper{wr: output}
+	me.currentChunk.SetType([4]byte{byte('M'), byte('T'), byte('r'), byte('k')})
 
-	if !wr.SMF.NoRunningStatus {
-		wr.runningWriter = runningstatus.NewSMFWriter()
+	if !me.SMF.NoRunningStatus {
+		me.runningWriter = runningstatus.NewSMFWriter()
 	}
-	return wr
+	return me
 }
 
 type writer struct {
@@ -48,65 +48,65 @@ type writer struct {
 	runningWriter   runningstatus.SMFWriter
 }
 
-func (w *writer) printf(format string, vals ...interface{}) {
-	if w.SMF.Logger == nil {
+func (me *writer) printf(format string, vals ...interface{}) {
+	if me.SMF.Logger == nil {
 		return
 	}
 
-	w.SMF.Logger.Printf("smfwriter: "+format+"\n", vals...)
+	me.SMF.Logger.Printf("smfwriter: "+format+"\n", vals...)
 }
 
-func (w *writer) Close() error {
-	if cl, is := w.output.wr.(io.WriteCloser); is {
-		w.printf("closing output")
+func (me *writer) Close() error {
+	if cl, is := me.output.wr.(io.WriteCloser); is {
+		me.printf("closing output")
 		return cl.Close()
 	}
 	return nil
 }
 
-func (w *writer) WriteHeader() error {
-	if w.headerWritten {
-		return w.error
+func (me *writer) WriteHeader() error {
+	if me.headerWritten {
+		return me.error
 	}
-	err := w.writeHeader(w.output)
-	w.headerWritten = true
+	err := me.writeHeader(me.output)
+	me.headerWritten = true
 
 	if err != nil {
-		w.error = err
+		me.error = err
 	}
 
 	return err
 }
 
-func (w *writer) Position() uint64 {
-	return w.absPos
+func (me *writer) Position() uint64 {
+	return me.absPos
 }
 
 // SetDelta sets the delta time in ticks for the next message(s)
-func (w *writer) SetDelta(deltatime uint32) {
-	w.deltatime = deltatime
+func (me *writer) SetDelta(deltatime uint32) {
+	me.deltatime = deltatime
 }
 
 // Write writes the message and returns the bytes that have been physically written.
 // If a write fails with an error, every following attempt to write will return this first error,
 // so de facto writing will be blocked.
-func (w *writer) Write(m Message) (err error) {
-	if w.error != nil {
-		return w.error
+func (me *writer) Write(m Message) (err error) {
+	if me.error != nil {
+		return me.error
 	}
-	if !w.headerWritten {
-		w.error = w.WriteHeader()
+	if !me.headerWritten {
+		me.error = me.WriteHeader()
 	}
-	if w.error != nil {
-		w.printf("ERROR: writing header before midi message %#v failed: %v", m, w.error)
-		w.error = fmt.Errorf("writing header before midi message %#v failed: %v", m, w.error)
-		return w.error
+	if me.error != nil {
+		me.printf("ERROR: writing header before midi message %#v failed: %v", m, me.error)
+		me.error = fmt.Errorf("writing header before midi message %#v failed: %v", m, me.error)
+		return me.error
 	}
 	defer func() {
-		w.deltatime = 0
+		me.deltatime = 0
 	}()
 
-	w.addMessage(w.deltatime, m)
+	me.addMessage(me.deltatime, m)
 	return
 }
 
@@ -133,14 +133,14 @@ func (w *writer) Write(m Message) (err error) {
 /* unit of time for delta timing. If the value is positive, then it represents the units per beat.
 For example, +96 would mean 96 ticks per beat. If the value is negative, delta times are in SMPTE compatible units.
 */
-func (w *writer) writeTimeFormat(wr io.Writer) error {
-	switch tf := w.SMF.TimeFormat.(type) {
+func (me *writer) writeTimeFormat(wr io.Writer) error {
+	switch tf := me.SMF.TimeFormat.(type) {
 	case MetricTicks:
 		ticks := tf.Ticks4th()
 		if ticks > 32767 {
 			ticks = 32767 // 32767 is the largest possible value, since bit 15 must always be 0
 		}
-		w.printf("writing metric ticks: %v", ticks)
+		me.printf("writing metric ticks: %v", ticks)
 		return binary.Write(wr, binary.BigEndian, uint16(ticks))
 	case TimeCode:
 		// multiplication with -1 makes sure that bit 15 is set
@@ -148,91 +148,91 @@ func (w *writer) writeTimeFormat(wr io.Writer) error {
 		if err != nil {
 			return err
 		}
-		w.printf("writing time code fps: %v subframes: %v", int8(tf.FramesPerSecond)*-1, tf.SubFrames)
+		me.printf("writing time code fps: %v subframes: %v", int8(tf.FramesPerSecond)*-1, tf.SubFrames)
 		return binary.Write(wr, binary.BigEndian, tf.SubFrames)
 	default:
 		//panic(fmt.Sprintf("unsupported TimeFormat: %#v", w.header.TimeFormat))
-		w.printf("ERROR: unsupported TimeFormat: %#v", w.SMF.TimeFormat)
-		return fmt.Errorf("unsupported TimeFormat: %#v", w.SMF.TimeFormat)
+		me.printf("ERROR: unsupported TimeFormat: %#v", me.SMF.TimeFormat)
+		return fmt.Errorf("unsupported TimeFormat: %#v", me.SMF.TimeFormat)
 	}
 }
 
 // <Header Chunk> = <chunk type><length><format><ntrks><division>
-func (w *writer) writeHeader(wr io.Writer) error {
-	w.printf("write header")
+func (me *writer) writeHeader(wr io.Writer) error {
+	me.printf("write header")
 	var ch chunk
 	ch.SetType([4]byte{byte('M'), byte('T'), byte('h'), byte('d')})
 	var bf bytes.Buffer
 
-	w.printf("write format %v", w.format)
-	binary.Write(&bf, binary.BigEndian, w.format)
-	w.printf("write num tracks %v", w.numTracks)
-	binary.Write(&bf, binary.BigEndian, w.numTracks)
+	me.printf("write format %v", me.format)
+	binary.Write(&bf, binary.BigEndian, me.format)
+	me.printf("write num tracks %v", me.numTracks)
+	binary.Write(&bf, binary.BigEndian, me.numTracks)
 
-	err := w.writeTimeFormat(&bf)
+	err := me.writeTimeFormat(&bf)
 	if err != nil {
-		w.printf("ERROR: could not write header: %v", err)
+		me.printf("ERROR: could not write header: %v", err)
 		return fmt.Errorf("could not write header: %v", err)
 	}
 
 	_, err = ch.Write(bf.Bytes())
 	if err != nil {
-		w.printf("ERROR: could not write header: %v", err)
+		me.printf("ERROR: could not write header: %v", err)
 		return fmt.Errorf("could not write header: %v", err)
 	}
 
 	_, err = ch.WriteTo(wr)
 	if err != nil {
-		w.printf("ERROR: could not write header: %v", err)
+		me.printf("ERROR: could not write header: %v", err)
 		return fmt.Errorf("could not write header: %v", err)
 	}
-	w.printf("header written successfully")
+	me.printf("header written successfully")
 	return nil
 }
 
 // <Track Chunk> = <chunk type><length><MTrk event>+
-func (w *writer) writeChunkTo(wr io.Writer) (err error) {
-	_, err = w.currentChunk.WriteTo(wr)
+func (me *writer) writeChunkTo(wr io.Writer) (err error) {
+	_, err = me.currentChunk.WriteTo(wr)
 
 	if err != nil {
-		w.printf("ERROR: could not write track %v: %v", w.tracksProcessed+1, err)
-		return fmt.Errorf("could not write track %v: %v", w.tracksProcessed+1, err)
+		me.printf("ERROR: could not write track %v: %v", me.tracksProcessed+1, err)
+		return fmt.Errorf("could not write track %v: %v", me.tracksProcessed+1, err)
 	}
 
-	w.printf("track %v successfully written", w.tracksProcessed+1)
+	me.printf("track %v successfully written", me.tracksProcessed+1)
 
-	if !w.SMF.NoRunningStatus {
-		w.runningWriter = runningstatus.NewSMFWriter()
+	if !me.SMF.NoRunningStatus {
+		me.runningWriter = runningstatus.NewSMFWriter()
 	}
 
 	// remove the data for the next track
-	w.currentChunk.Clear()
-	w.deltatime = 0
+	me.currentChunk.Clear()
+	me.deltatime = 0
 
-	w.tracksProcessed++
-	if w.numTracks == w.tracksProcessed {
-		w.printf("last track written, finished")
+	me.tracksProcessed++
+	if me.numTracks == me.tracksProcessed {
+		me.printf("last track written, finished")
 		//		err = ErrFinished
 	}
 
 	return
 }
 
-func (w *writer) appendToChunk(deltaTime uint32, b []byte) {
-	w.currentChunk.Write(append(vlq.VlqEncode(deltaTime), b...))
+func (me *writer) appendToChunk(deltaTime uint32, b []byte) {
+	me.currentChunk.Write(append(vlq.VlqEncode(deltaTime), b...))
 }
 
 // delta is distance in time to last event in this track (independent of the channel)
-func (w *writer) addMessage(deltaTime uint32, raw Message) {
-	w.absPos += uint64(deltaTime)
+func (me *writer) addMessage(deltaTime uint32, raw Message) {
+	me.absPos += uint64(deltaTime)
 
 	isSysEx := raw[0] == 0xF0 || raw[0] == 0xF7
 	if isSysEx {
 		// we have some sort of sysex, so we need to
 		// calculate the length of msg[1:]
 		// set msg to msg[0] + length of msg[1:] + msg[1:]
-		if w.runningWriter != nil {
-			w.runningWriter.ResetStatus()
+		if me.runningWriter != nil {
+			me.runningWriter.ResetStatus()
 		}
 
 		//if sys, ok := msg.(sysex.Message); ok {
@@ -242,16 +242,16 @@ func (w *writer) addMessage(deltaTime uint32, raw Message) {
 			b = append(b, raw[1:]...)
 		}
 
-		w.appendToChunk(deltaTime, b)
+		me.appendToChunk(deltaTime, b)
 		return
 	}
 
-	if w.runningWriter != nil {
-		w.appendToChunk(deltaTime, w.runningWriter.Write(raw))
+	if me.runningWriter != nil {
+		me.appendToChunk(deltaTime, me.runningWriter.Write(raw))
 		return
 	}
 
-	w.appendToChunk(deltaTime, raw)
+	me.appendToChunk(deltaTime, raw)
 }
 
 /*

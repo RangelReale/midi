@@ -8,28 +8,28 @@ type TempoChange struct {
 
 type TempoChanges []*TempoChange
 
-func (t TempoChanges) Swap(a, b int) {
-	t[a], t[b] = t[b], t[a]
+func (me TempoChanges) Swap(a, b int) {
+	me[a], me[b] = me[b], me[a]
 }
 
-func (t TempoChanges) Len() int {
-	return len(t)
+func (me TempoChanges) Len() int {
+	return len(me)
 }
 
-func (t TempoChanges) Less(a, b int) bool {
-	return t[a].AbsTicks < t[b].AbsTicks
+func (me TempoChanges) Less(a, b int) bool {
+	return me[a].AbsTicks < me[b].AbsTicks
 }
 
-func (t TempoChanges) TempoAt(absTicks int64) (bpm float64) {
-	tc := t.TempoChangeAt(absTicks)
+func (me TempoChanges) TempoAt(absTicks int64) (bpm float64) {
+	tc := me.TempoChangeAt(absTicks)
 	if tc == nil {
 		return 120.00
 	}
 	return tc.BPM
 }
 
-func (t TempoChanges) TempoChangeAt(absTicks int64) (tch *TempoChange) {
-	for _, tc := range t {
+func (me TempoChanges) TempoChangeAt(absTicks int64) (tch *TempoChange) {
+	for _, tc := range me {
 		if tc.AbsTicks > absTicks {
 			break
 		}

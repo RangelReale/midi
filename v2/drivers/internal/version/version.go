@@ -15,36 +15,36 @@ type Version struct {
 }
 
 // String returns the string representation of the version (without a preceeding v
-func (v Version) String() string {
-	return fmt.Sprintf("%v.%v.%v", v.Major, v.Minor, v.Patch)
+func (me Version) String() string {
+	return fmt.Sprintf("%v.%v.%v", me.Major, me.Minor, me.Patch)
 }
 
 // Equals is true when the version exactly equals the given version
-func (v Version) Equals(o Version) bool {
-	return v.Major == o.Major && v.Minor == o.Minor && v.Patch == o.Patch
+func (me Version) Equals(o Version) bool {
+	return me.Major == o.Major && me.Minor == o.Minor && me.Patch == o.Patch
 }
 
 // EqualsMajor is true when the version equals the given version on the Major
-func (v Version) EqualsMajor(o Version) bool {
-	return v.Major == o.Major
+func (me Version) EqualsMajor(o Version) bool {
+	return me.Major == o.Major
 }
 
 // EqualsMinor is true when the version equals the given version on the Major and Minor
-func (v Version) EqualsMinor(o Version) bool {
-	return v.Major == o.Major && v.Minor == o.Minor
+func (me Version) EqualsMinor(o Version) bool {
+	return me.Major == o.Major && me.Minor == o.Minor
 }
 
 // Less returns true, if the Version is smaller than the given one.
-func (v Version) Less(o Version) bool {
-	if v.Major != o.Major {
-		return v.Major < o.Major
+func (me Version) Less(o Version) bool {
+	if me.Major != o.Major {
+		return me.Major < o.Major
 	}
 
-	if v.Minor != o.Minor {
-		return v.Minor < o.Minor
+	if me.Minor != o.Minor {
+		return me.Minor < o.Minor
 	}
 
-	return v.Patch < o.Patch
+	return me.Patch < o.Patch
 }
 
 // Parse parses the version out of the given string. Valid strings are "v0.0.1" or "1.0" or "12" etc.
@@ -97,40 +97,40 @@ func Parse(v string) (*Version, error) {
 type Versions []*Version
 
 // Less returns true, if the version of index a is less than the version of index b
-func (v Versions) Less(a, b int) bool {
-	return v[a].Less(*v[b])
+func (me Versions) Less(a, b int) bool {
+	return me[a].Less(*me[b])
 }
 
 // Len returns the number of *Version inside the slice
-func (v Versions) Len() int {
-	return len(v)
+func (me Versions) Len() int {
+	return len(me)
 }
 
 // Swap swaps the *Version of the index a with that of the index b
-func (v Versions) Swap(a, b int) {
-	v[a], v[b] = v[b], v[a]
+func (me Versions) Swap(a, b int) {
+	me[a], me[b] = me[b], me[a]
 }
 
 // Sort sorts the slice and returns it
-func (v Versions) Sort() Versions {
-	sort.Sort(v)
-	return v
+func (me Versions) Sort() Versions {
+	sort.Sort(me)
+	return me
 }
 
 // Last returns the last *Version of the slice.
-func (v Versions) Last() *Version {
-	if len(v) == 0 {
+func (me Versions) Last() *Version {
+	if len(me) == 0 {
 		return nil
 	}
 
-	return v[len(v)-1]
+	return me[len(me)-1]
 }
 
 // First returns the first *Version of the slice.
-func (v Versions) First() *Version {
-	if len(v) == 0 {
+func (me Versions) First() *Version {
+	if len(me) == 0 {
 		return nil
 	}
 
-	return v[0]
+	return me[0]
 }

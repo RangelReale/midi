@@ -17,15 +17,15 @@ type reader struct {
 	status byte
 }
 
-func (r *reader) read(canary byte) (status byte, changed bool) {
+func (me *reader) read(canary byte) (status byte, changed bool) {
 
 	// channel/Voice Category Status
 	if canary >= 0x80 && canary <= 0xEF {
-		r.status = canary
+		me.status = canary
 		changed = true
 	}
 
-	return r.status, changed
+	return me.status, changed
 }
 
 type livereader struct {
@@ -45,15 +45,15 @@ type livereader struct {
 
 // Read reads the status byte from the given canary, while respecting
 // running status and returns whether the status has changed
-func (r *livereader) Read(canary byte) (status byte, changed bool) {
+func (me *livereader) Read(canary byte) (status byte, changed bool) {
 
 	// here we clear for System Common Category messages
 	if canary >= 0xF0 && canary <= 0xF7 {
-		r.status = 0
-		return r.status, true
+		me.status = 0
+		return me.status, true
 	}
 
-	return r.read(canary)
+	return me.read(canary)
 }
 
 type smfreader struct {
@@ -62,15 +62,15 @@ type smfreader struct {
 
 // Read reads the status byte from the given canary, while respecting
 // running status and returns whether the status has changed
-func (r *smfreader) Read(canary byte) (status byte, changed bool) {
+func (me *smfreader) Read(canary byte) (status byte, changed bool) {
 
 	// here we clear for meta messages
 	if canary == 0xFF || canary == 0xF0 || canary == 0xF7 {
-		r.status = 0
-		return r.status, true
+		me.status = 0
+		return me.status, true
 	}
 
-	return r.read(canary)
+	return me.read(canary)
 }
 
 // NewLiveReader returns a new Reader for reading of live MIDI data
@@ -109,12 +109,12 @@ type smfwriter struct {
 	status byte
 }
 
-func (w *smfwriter) ResetStatus() {
-	w.status = 0
+func (me *smfwriter) ResetStatus() {
+	me.status = 0
 }
 
 // Write writes the given message with running status
-func (w *smfwriter) Write(raw []byte) []byte {
+func (me *smfwriter) Write(raw []byte) []byte {
 	//	raw := m.Data
 	// fmt.Printf("should write %s (% X)\n", msg, raw)
 	firstByte := raw[0]
@@ -129,14 +129,14 @@ func (w *smfwriter) Write(raw []byte) []byte {
 	if !midi.Message(raw).Is(midi.ChannelMsg) {
 		// if midi.GetMsgType(raw).Category() != midi.ChannelMessages {
 		//fmt.Printf("is no channel message, resetting status\n")
-		w.status = 0
+		me.status = 0
 		return raw
 	}
 
 	// for a different status, store runningStatus and write whole message
-	if firstByte != w.status {
+	if firstByte != me.status {
 		//fmt.Printf("setting status to: % X (was: % X)\n", firstByte, w.status)
-		w.status = firstByte
+		me.status = firstByte
 		return raw
 	}
 
@@ -145,12 +145,12 @@ func (w *smfwriter) Write(raw []byte) []byte {
 	return raw[1:]
 }
 
-func (w *liveWriter) runningstatus() {
+func (me *liveWriter) runningstatus() {
 
 }
 
-func (w *liveWriter) write(b []byte) (n int, err error) {
-	return w.output.Write(b)
+func (me *liveWriter) write(b []byte) (n int, err error) {
+	return me.output.Write(b)
 }
 
 type liveWriter struct {
@@ -159,11 +159,11 @@ type liveWriter struct {
 }
 
 // Write writes the given message with running status
-func (w *liveWriter) Write(m []byte) (int, error) {
+func (me *liveWriter) Write(m []byte) (int, error) {
 	// fmt.Printf("should write % X\n", msg)
 	// for realtime system messages, don't affect status and write the whole message
 	if m[0] > 0xF7 {
-		return w.write(m)
+		return me.write(m)
 	}
 
 	/*
@@ -178,18 +178,18 @@ func (w *liveWriter) Write(m []byte) (int, error) {
 	//if midi.GetMsgType(m).Category() != midi.ChannelMessages {
 	if !midi.Message(m).Is(midi.ChannelMsg) {
 		// fmt.Printf("is no channel message, resetting status\n")
-		w.status = 0
-		return w.write(m)
+		me.status = 0
+		return me.write(m)
 	}
 
 	// for a different status, store runningStatus and write whole message
-	if m[0] != w.status {
+	if m[0] != me.status {
 		// fmt.Printf("setting status to: % X (was: % X)\n", msg[0], w.status)
-		w.status = m[0]
-		return w.write(m)
+		me.status = m[0]
+		return me.write(m)
 	}
 
 	// we got the same status as runningStatus, so omit the status byte when writing
 	// fmt.Printf("taking running status (% X), writing: % X\n", w.status, msg[1:])
-	return w.write(m[1:])
+	return me.write(m[1:])
 }

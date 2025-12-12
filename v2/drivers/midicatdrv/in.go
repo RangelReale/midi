@@ -26,44 +26,44 @@ type in struct {
 	listener            func(data []byte, deltamillisecs int32)
 }
 
-func (o *in) fireCmd() error {
-	o.Lock()
-	if o.hasProc {
-		o.Unlock()
+func (me *in) fireCmd() error {
+	me.Lock()
+	if me.hasProc {
+		me.Unlock()
 		return fmt.Errorf("already running")
 	}
-	o.shouldStopListening = make(chan bool, 1)
-	o.didStopListening = make(chan bool, 1)
-	o.shouldKill = make(chan bool, 1)
-	o.wasKilled = make(chan bool, 1)
-	o.hasProc = true
-	cmd := midiCatInCmd(o.number)
+	me.shouldStopListening = make(chan bool, 1)
+	me.didStopListening = make(chan bool, 1)
+	me.shouldKill = make(chan bool, 1)
+	me.wasKilled = make(chan bool, 1)
+	me.hasProc = true
+	cmd := midiCatInCmd(me.number)
 	rd, wr := io.Pipe()
 	cmd.Stdout = wr
 	err := cmd.Start()
 	if err != nil {
-		o.Lock()
-		o.hasProc = false
-		o.Unlock()
+		me.Lock()
+		me.hasProc = false
+		me.Unlock()
 		return err
 	}
-	o.Unlock()
+	me.Unlock()
 	go func() {
 		for {
 			data, abstime, err := lib.ReadAndConvert(rd)
 			if err != nil {
 				return
 			}
-			o.RLock()
-			if !o.hasProc {
-				o.RUnlock()
+			me.RLock()
+			if !me.hasProc {
+				me.RUnlock()
 				return
 			}
 
-			if o.listener != nil {
-				o.listener(data, abstime)
+			if me.listener != nil {
+				me.listener(data, abstime)
 			}
-			o.RUnlock()
+			me.RUnlock()
 			runtime.Gosched()
 		}
 	}()
@@ -82,82 +82,82 @@ func (o *in) fireCmd() error {
 					*/
 					cmd.Process.Kill()
 				}
-				o.Lock()
-				o.hasProc = false
-				o.Unlock()
+				me.Lock()
+				me.hasProc = false
+				me.Unlock()
 				wasKilled <- true
 				return
 			case <-shouldStopListening:
-				o.Lock()
-				o.listener = nil
-				o.Unlock()
+				me.Lock()
+				me.listener = nil
+				me.Unlock()
 				didStopListening <- true
 			default:
 				runtime.Gosched()
 			}
 		}
-	}(o.shouldStopListening, o.didStopListening, o.shouldKill, o.wasKilled)
+	}(me.shouldStopListening, me.didStopListening, me.shouldKill, me.wasKilled)
 
 	return nil
 }
 
 // IsOpen returns wether the MIDI in port is open
-func (o *in) IsOpen() (open bool) {
-	o.RLock()
-	open = o.hasProc
-	o.RUnlock()
+func (me *in) IsOpen() (open bool) {
+	me.RLock()
+	open = me.hasProc
+	me.RUnlock()
 	return
 }
 
 // String returns the name of the MIDI in port.
-func (i *in) String() string {
-	return i.name
+func (me *in) String() string {
+	return me.name
 }
 
 // Underlying returns the underlying driver. Here returns nil.
-func (i *in) Underlying() interface{} {
+func (me *in) Underlying() interface{} {
 	return nil
 }
 
 // Number returns the number of the MIDI in port.
 // Note that with rtmidi, out and in ports are counted separately.
 // That means there might exists out ports and an in ports that share the same number.
-func (i *in) Number() int {
-	return i.number
+func (me *in) Number() int {
+	return me.number
 }
 
 // Close closes the MIDI in port, after it has stopped listening.
-func (i *in) Close() (err error) {
-	if !i.IsOpen() {
+func (me *in) Close() (err error) {
+	if !me.IsOpen() {
 		return nil
 	}
 
 	//i.shouldStopReading
 	go func() {
-		i.shouldStopListening <- true
+		me.shouldStopListening <- true
 	}()
-	<-i.didStopListening
+	<-me.didStopListening
 
-	i.shouldKill <- true
-	<-i.wasKilled
+	me.shouldKill <- true
+	<-me.wasKilled
 	return
 }
 
 // Open opens the MIDI in port
-func (i *in) Open() (err error) {
-	if i.IsOpen() {
+func (me *in) Open() (err error) {
+	if me.IsOpen() {
 		return nil
 	}
 
-	err = i.fireCmd()
+	err = me.fireCmd()
 	if err != nil {
-		i.Close()
-		return fmt.Errorf("can't open MIDI in port %v (%s): %v", i.number, i, err)
+		me.Close()
+		return fmt.Errorf("can't open MIDI in port %v (%s): %v", me.number, me, err)
 	}
 
-	i.driver.Lock()
-	i.driver.opened = append(i.driver.opened, i)
-	i.driver.Unlock()
+	me.driver.Lock()
+	me.driver.opened = append(me.driver.opened, me)
+	me.driver.Unlock()
 
 	return nil
 }
@@ -166,16 +166,16 @@ func newIn(driver *Driver, number int, name string) drivers.In {
 	return &in{driver: driver, number: number, name: name}
 }
 
-func (i *in) Listen(onMsg func(msg []byte, absmilliseconds int32), conf drivers.ListenConfig) (stopFn func(), err error) {
+func (me *in) Listen(onMsg func(msg []byte, absmilliseconds int32), conf drivers.ListenConfig) (stopFn func(), err error) {
 	stopFn = func() {
-		if !i.IsOpen() {
+		if !me.IsOpen() {
 			return
 		}
-		i.shouldStopListening <- true
-		<-i.didStopListening
+		me.shouldStopListening <- true
+		<-me.didStopListening
 	}
 
-	if !i.IsOpen() {
+	if !me.IsOpen() {
 		return nil, drivers.ErrPortClosed
 	}
 
@@ -183,16 +183,16 @@ func (i *in) Listen(onMsg func(msg []byte, absmilliseconds int32), conf drivers.
 		return nil, fmt.Errorf("onMsg callback must not be nil")
 	}
 
-	i.RLock()
-	if i.listener != nil {
-		i.RUnlock()
+	me.RLock()
+	if me.listener != nil {
+		me.RUnlock()
 		return nil, fmt.Errorf("listener already set")
 	}
-	i.RUnlock()
+	me.RUnlock()
 
 	//var rd = drivers.NewReader(config, onMsg)
-	i.Lock()
-	i.listener = func(data []byte, absmilliseconds int32) {
+	me.Lock()
+	me.listener = func(data []byte, absmilliseconds int32) {
 		//rd.EachMessage(data, deltamillisecs)
 		//rd.EachMessage(data, -1)
 		msg := midi.Message(data)
@@ -210,7 +210,7 @@ func (i *in) Listen(onMsg func(msg []byte, absmilliseconds int32), conf drivers.
 		}
 		onMsg(data, absmilliseconds)
 	}
-	i.Unlock()
+	me.Unlock()
 
 	return stopFn, nil
 }

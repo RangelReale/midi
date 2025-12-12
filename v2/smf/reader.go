@@ -111,17 +111,18 @@ func (me *reader) ReadHeader() error {
 }
 
 type reader struct {
-	*SMF
-	Logger Logger
-
-	input               *readerCounter
 	chunkIsTrack        bool
 	expectedChunkLength uint32
-	runningStatus       runningstatus.Reader
 	processedTracks     int16
 	deltatime           uint32
 	headerIsRead        bool
-	error               error
+
+	*SMF
+	Logger Logger
+
+	input         *readerCounter
+	runningStatus runningstatus.Reader
+	error         error
 }
 
 // Delta returns the delta time in ticks for the last MIDI message

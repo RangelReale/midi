@@ -131,7 +131,7 @@ var smfJSONKeys = struct {
 	tracknameType:      "trackname",
 }
 
-func (s *SMF) UnmarshalJSON(data []byte) error {
+func (me *SMF) UnmarshalJSON(data []byte) error {
 
 	var all = map[string]any{}
 
@@ -141,13 +141,13 @@ func (s *SMF) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	s.Tracks = nil
-	s.format = uint16(all[smfJSONKeys.format].(float64))
+	me.Tracks = nil
+	me.format = uint16(all[smfJSONKeys.format].(float64))
 
 	if tf, has := all[smfJSONKeys.timeformat]; has {
 		ttf := tf.(map[string]any)
 		if mc, has := ttf[smfJSONKeys.metricticks]; has {
-			s.TimeFormat = MetricTicks(uint16(mc.(float64)))
+			me.TimeFormat = MetricTicks(uint16(mc.(float64)))
 		}
 
 		if tc, has := ttf[smfJSONKeys.timecode]; has {
@@ -155,10 +155,10 @@ func (s *SMF) UnmarshalJSON(data []byte) error {
 			ttc := tc.(map[string]any)
 			t.FramesPerSecond = uint8(ttc[smfJSONKeys.framespersecond].(float64))
 			t.SubFrames = uint8(ttc[smfJSONKeys.subframes].(float64))
-			s.TimeFormat = t
+			me.TimeFormat = t
 		}
 	} else {
-		s.TimeFormat = defaultMetric
+		me.TimeFormat = defaultMetric
 	}
 
 	tracks := all[smfJSONKeys.tracks].([]any) // ([][]map[string]any)
@@ -311,33 +311,33 @@ func (s *SMF) UnmarshalJSON(data []byte) error {
 			t = append(t, e)
 		}
 
-		s.Tracks = append(s.Tracks, t)
+		me.Tracks = append(me.Tracks, t)
 	}
 
 	return nil
 }
 
-func (s *SMF) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s.serializeMap())
+func (me *SMF) MarshalJSON() ([]byte, error) {
+	return json.Marshal(me.serializeMap())
 }
 
-func (s *SMF) MarshalJSONIndent() ([]byte, error) {
-	return json.MarshalIndent(s.serializeMap(), "", "  ")
+func (me *SMF) MarshalJSONIndent() ([]byte, error) {
+	return json.MarshalIndent(me.serializeMap(), "", "  ")
 }
 
-func (s *SMF) serializeMap() map[string]any {
+func (me *SMF) serializeMap() map[string]any {
 
 	var all = map[string]any{}
 
-	all[smfJSONKeys.format] = s.format
+	all[smfJSONKeys.format] = me.format
 
 	timeformat := map[string]any{}
 
-	if mt, ok := s.TimeFormat.(MetricTicks); ok {
+	if mt, ok := me.TimeFormat.(MetricTicks); ok {
 		timeformat[smfJSONKeys.metricticks] = mt.Resolution()
 	}
 
-	if tc, ok := s.TimeFormat.(TimeCode); ok {
+	if tc, ok := me.TimeFormat.(TimeCode); ok {
 		timeformat[smfJSONKeys.timecode] = map[string]any{
 			smfJSONKeys.framespersecond: tc.FramesPerSecond,
 			smfJSONKeys.subframes:       tc.SubFrames,
@@ -348,7 +348,7 @@ func (s *SMF) serializeMap() map[string]any {
 
 	var tracks [][]map[string]any
 
-	for _, tr := range s.Tracks {
+	for _, tr := range me.Tracks {
 
 		var track []map[string]any
 

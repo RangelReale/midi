@@ -32,25 +32,25 @@ type Driver struct {
 	sync.RWMutex
 }
 
-func (d *Driver) String() string {
+func (me *Driver) String() string {
 	return "midicatdrv"
 }
 
 // Close closes all open ports. It must be called at the end of a session.
-func (d *Driver) Close() (err error) {
-	d.Lock()
+func (me *Driver) Close() (err error) {
+	me.Lock()
 	var e CloseErrors
 
-	for _, p := range d.opened {
+	for _, p := range me.opened {
 		err = p.Close()
 		if err != nil {
 			e = append(e, err)
 		}
 	}
 
-	d.opened = nil
+	me.opened = nil
 
-	d.Unlock()
+	me.Unlock()
 
 	if len(e) == 0 {
 		return nil
@@ -77,8 +77,8 @@ func MakeChecker() (c checker) {
 	return c
 }
 
-func (c *checker) barkTo(wr io.Writer) {
-	fmt.Fprintf(wr, "can't find midicat binary %s > version >= %s in your PATH, please download from: %s\n", c.nextVersion, c.minVersion, c.downloadURL)
+func (me *checker) barkTo(wr io.Writer) {
+	fmt.Fprintf(wr, "can't find midicat binary %s > version >= %s in your PATH, please download from: %s\n", me.nextVersion, me.minVersion, me.downloadURL)
 }
 
 /*
@@ -141,11 +141,11 @@ func CheckMIDICatBinary(barkTarget io.Writer) error {
 }
 */
 
-func (c *checker) checkMIDICAT() bool {
+func (me *checker) checkMIDICAT() bool {
 	b, err := midiCatVersionCmd().Output()
 
 	if err != nil {
-		c.barkTo(os.Stdout)
+		me.barkTo(os.Stdout)
 		panic("missing binary 'midicat'")
 	}
 
@@ -158,13 +158,13 @@ func (c *checker) checkMIDICAT() bool {
 	}
 
 	//if s != minMidicatVersion {
-	if vReal.Less(c.minVersion) {
-		c.barkTo(os.Stdout)
+	if vReal.Less(me.minVersion) {
+		me.barkTo(os.Stdout)
 		panic(fmt.Sprintf("%q", s))
 	}
 
-	if !vReal.Less(c.nextVersion) {
-		c.barkTo(os.Stdout)
+	if !vReal.Less(me.nextVersion) {
+		me.barkTo(os.Stdout)
 		panic(fmt.Sprintf("%q", s))
 	}
 	return true
@@ -185,7 +185,7 @@ func New() (*Driver, error) {
 }
 
 // Ins returns the available MIDI input ports
-func (d *Driver) Ins() (ins []drivers.In, err error) {
+func (me *Driver) Ins() (ins []drivers.In, err error) {
 
 	c := midiCatCmd("ins --json")
 	res, err := c.Output()
@@ -209,7 +209,7 @@ func (d *Driver) Ins() (ins []drivers.In, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("got invalid index from midicat: %s", string(res))
 		}
-		ins = append(ins, newIn(d, i, name))
+		ins = append(ins, newIn(me, i, name))
 	}
 
 	inss := inPorts(ins)
@@ -219,7 +219,7 @@ func (d *Driver) Ins() (ins []drivers.In, err error) {
 }
 
 // Outs returns the available MIDI output ports
-func (d *Driver) Outs() (outs []drivers.Out, err error) {
+func (me *Driver) Outs() (outs []drivers.Out, err error) {
 	c := midiCatCmd("outs --json")
 	res, err := c.Output()
 
@@ -242,7 +242,7 @@ func (d *Driver) Outs() (outs []drivers.Out, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("got invalid index from midicat: %s", string(res))
 		}
-		outs = append(outs, newOut(d, i, name))
+		outs = append(outs, newOut(me, i, name))
 	}
 
 	outss := outPorts(outs)
@@ -255,8 +255,8 @@ func (d *Driver) Outs() (outs []drivers.Out, err error) {
 // CloseErrors collects error from closing multiple MIDI ports
 type CloseErrors []error
 
-func (c CloseErrors) Error() string {
-	if len(c) == 0 {
+func (me CloseErrors) Error() string {
+	if len(me) == 0 {
 		return "no errors"
 	}
 
@@ -264,7 +264,7 @@ func (c CloseErrors) Error() string {
 
 	bd.WriteString("the following closing errors occured:\n")
 
-	for _, e := range c {
+	for _, e := range me {
 		bd.WriteString(e.Error() + "\n")
 	}
 

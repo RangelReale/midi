@@ -48,26 +48,26 @@ func New(outPort drivers.Out) *Player {
 }
 
 // stop will signal the player to stop playing
-func (p *Player) stop(cause error) error {
-	if !p.isPlaying {
+func (me *Player) stop(cause error) error {
+	if !me.isPlaying {
 		return ErrIsStopped
 	}
-	p.cancelFn(cause)
+	me.cancelFn(cause)
 	return nil
 }
 
 // SetSMF takes in a SMF and creates units that can be played.
-func (p *Player) SetSMF(smfdata io.Reader, tracks ...int) error {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+func (me *Player) SetSMF(smfdata io.Reader, tracks ...int) error {
+	me.mutex.Lock()
+	defer me.mutex.Unlock()
 
-	if p.isPlaying {
+	if me.isPlaying {
 		return ErrIsPlaying
 	}
 
-	p.currentMsg = 0
-	p.currentDur = 0
-	p.messages = nil
+	me.currentMsg = 0
+	me.currentDur = 0
+	me.messages = nil
 
 	var events smfReader
 	err := events.read(smfdata, tracks...)
@@ -75,65 +75,65 @@ func (p *Player) SetSMF(smfdata io.Reader, tracks ...int) error {
 		return err
 	}
 
-	p.messages, p.totalDur = events.getMessages()
+	me.messages, me.totalDur = events.getMessages()
 	return nil
 }
 
 // Start starts playing. It is non-blocking. Call wait to wait until it is finished.
-func (p *Player) Start() error {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+func (me *Player) Start() error {
+	me.mutex.Lock()
+	defer me.mutex.Unlock()
 
-	if p.messages == nil {
+	if me.messages == nil {
 		return ErrNoSMFData
 	}
 
-	if p.isPlaying {
+	if me.isPlaying {
 		return ErrIsPlaying
 	}
 
-	p.isPlaying = true
-	p.ctx, p.cancelFn = context.WithCancelCause(context.Background())
+	me.isPlaying = true
+	me.ctx, me.cancelFn = context.WithCancelCause(context.Background())
 
-	go p.playOn(p.outPort)
+	go me.playOn(me.outPort)
 	return nil
 }
 
 // Stop stops the playing.
-func (p *Player) Stop() (err error) {
-	return p.stop(errStopped)
+func (me *Player) Stop() (err error) {
+	return me.stop(errStopped)
 }
 
 // Pause pauses the playing.
-func (p *Player) Pause() (err error) {
-	return p.stop(errPaused)
+func (me *Player) Pause() (err error) {
+	return me.stop(errPaused)
 }
 
 // Wait will block until the player finishes playing.
-func (p *Player) Wait() {
-	for p.isPlaying {
+func (me *Player) Wait() {
+	for me.isPlaying {
 		time.Sleep(50 * time.Millisecond)
 	}
 }
 
 // IsPlaying returns wether the player is playing
-func (p *Player) IsPlaying() bool {
-	return p.isPlaying
+func (me *Player) IsPlaying() bool {
+	return me.isPlaying
 }
 
 // Duration is the total duration of the song.
-func (p *Player) Duration() time.Duration {
-	return p.totalDur
+func (me *Player) Duration() time.Duration {
+	return me.totalDur
 }
 
 // Current is the current time on the song.
-func (p *Player) Current() time.Duration {
-	return p.currentDur
+func (me *Player) Current() time.Duration {
+	return me.currentDur
 }
 
 // Remaining is the remaining duration of the smf data.
-func (p *Player) Remaining() time.Duration {
-	return p.totalDur - p.currentDur
+func (me *Player) Remaining() time.Duration {
+	return me.totalDur - me.currentDur
 }
 
 type smfReader struct {
@@ -141,28 +141,28 @@ type smfReader struct {
 }
 
 // read reads SMF data and parses all the track events.
-func (e *smfReader) read(smfdata io.Reader, tracks ...int) (err error) {
-	e.trackEvents = make([]smf.TrackEvent, 0, 100)
+func (me *smfReader) read(smfdata io.Reader, tracks ...int) (err error) {
+	me.trackEvents = make([]smf.TrackEvent, 0, 100)
 	return WrapOnError(
-		smf.ReadTracksFrom(smfdata, tracks...).Do(e.readEvent).Error(),
+		smf.ReadTracksFrom(smfdata, tracks...).Do(me.readEvent).Error(),
 		ErrInvalidSMF,
 	)
 }
 
 // readEvent reads a single event from the track.
-func (e *smfReader) readEvent(event smf.TrackEvent) {
+func (me *smfReader) readEvent(event smf.TrackEvent) {
 	if event.Message.IsPlayable() {
-		e.trackEvents = append(e.trackEvents, event)
+		me.trackEvents = append(me.trackEvents, event)
 	}
 }
 
 // getMessages parses the track events and returns the playable units.
-func (e *smfReader) getMessages() (messages []message, totalDur time.Duration) {
-	e.sortTrackEvents()
-	messages = make([]message, len(e.trackEvents))
+func (me *smfReader) getMessages() (messages []message, totalDur time.Duration) {
+	me.sortTrackEvents()
+	messages = make([]message, len(me.trackEvents))
 	totalDur = 0
 	for i := 0; i < len(messages); i++ {
-		var event = e.trackEvents[i]
+		var event = me.trackEvents[i]
 		messages[i] = message{
 			msg:   event.Message,
 			sleep: time.Microsecond * time.Duration(event.AbsMicroSeconds-totalDur.Microseconds()),
@@ -173,17 +173,17 @@ func (e *smfReader) getMessages() (messages []message, totalDur time.Duration) {
 }
 
 // sortTrackEvents makes sure the song is ordered by time.
-func (e *smfReader) sortTrackEvents() {
+func (me *smfReader) sortTrackEvents() {
 	sort.SliceStable(
-		e.trackEvents, func(i, j int) bool {
-			return e.trackEvents[i].AbsMicroSeconds < e.trackEvents[j].AbsMicroSeconds
+		me.trackEvents, func(i, j int) bool {
+			return me.trackEvents[i].AbsMicroSeconds < me.trackEvents[j].AbsMicroSeconds
 		},
 	)
 }
 
 // playOn will play the current song in the given out port
-func (p *Player) playOn(out drivers.Out) {
-	defer p.cleanupAfterPlaying()
+func (me *Player) playOn(out drivers.Out) {
+	defer me.cleanupAfterPlaying()
 
 	// Drivers may invoke CGO
 	// Makes sure thread is locked to avoid weird errors
@@ -199,15 +199,15 @@ func (p *Player) playOn(out drivers.Out) {
 	<-sleep.C
 
 	// play all messages
-	for i, m := range p.messages[p.currentMsg:] {
-		p.currentDur += m.sleep
-		p.currentMsg = i
+	for i, m := range me.messages[me.currentMsg:] {
+		me.currentDur += m.sleep
+		me.currentMsg = i
 		if m.sleep > 0 {
 			sleep.Reset(m.sleep)
 			select {
 			case <-sleep.C:
 				break
-			case <-p.ctx.Done():
+			case <-me.ctx.Done():
 				return
 			}
 		}
@@ -216,19 +216,19 @@ func (p *Player) playOn(out drivers.Out) {
 }
 
 // cleanupAfterPlaying does the cleaning up after playOn ends
-func (p *Player) cleanupAfterPlaying() {
-	_ = p.stop(errDone)
-	var err = context.Cause(p.ctx)
+func (me *Player) cleanupAfterPlaying() {
+	_ = me.stop(errDone)
+	var err = context.Cause(me.ctx)
 
 	switch {
 	case errors.Is(err, errDone):
 		fallthrough
 	case errors.Is(err, errStopped):
-		p.currentMsg = 0
-		p.currentDur = 0
+		me.currentMsg = 0
+		me.currentDur = 0
 	}
 
-	p.isPlaying = false
+	me.isPlaying = false
 }
 
 func Play(out drivers.Out, smfdata io.Reader, tracks ...int) (*Player, error) {

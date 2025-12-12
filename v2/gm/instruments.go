@@ -11,12 +11,12 @@ sounds, etc.
 
 type Instr uint8
 
-func (i Instr) Value() uint8 {
-	return uint8(i)
+func (me Instr) Value() uint8 {
+	return uint8(me)
 }
 
-func (i Instr) String() string {
-	return instrNames[uint8(i)]
+func (me Instr) String() string {
+	return instrNames[uint8(me)]
 }
 
 const (

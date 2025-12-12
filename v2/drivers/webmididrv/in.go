@@ -24,56 +24,56 @@ type in struct {
 }
 
 // IsOpen returns wether the MIDI in port is open
-func (o *in) IsOpen() (open bool) {
-	o.RLock()
-	open = o.isOpen
-	o.RUnlock()
+func (me *in) IsOpen() (open bool) {
+	me.RLock()
+	open = me.isOpen
+	me.RUnlock()
 	return
 }
 
 // String returns the name of the MIDI in port.
-func (i *in) String() string {
-	return i.name
+func (me *in) String() string {
+	return me.name
 }
 
 // Underlying returns the underlying driver. Here returns the js midi port.
-func (i *in) Underlying() interface{} {
-	return i.jsport
+func (me *in) Underlying() interface{} {
+	return me.jsport
 }
 
 // Number returns the number of the MIDI in port.
 // Note that with rtmidi, out and in ports are counted separately.
 // That means there might exists out ports and an in ports that share the same number.
-func (i *in) Number() int {
-	return i.number
+func (me *in) Number() int {
+	return me.number
 }
 
 // Close closes the MIDI in port, after it has stopped listening.
-func (i *in) Close() (err error) {
-	if !i.IsOpen() {
+func (me *in) Close() (err error) {
+	if !me.IsOpen() {
 		return nil
 	}
 
-	i.Lock()
-	i.isOpen = false
-	i.jsport.Call("close")
-	i.Unlock()
+	me.Lock()
+	me.isOpen = false
+	me.jsport.Call("close")
+	me.Unlock()
 	return
 }
 
 // Open opens the MIDI in port
-func (i *in) Open() (err error) {
-	if i.IsOpen() {
+func (me *in) Open() (err error) {
+	if me.IsOpen() {
 		return nil
 	}
-	i.Lock()
-	i.isOpen = true
-	i.jsport.Call("open")
-	i.Unlock()
+	me.Lock()
+	me.isOpen = true
+	me.jsport.Call("open")
+	me.Unlock()
 
-	i.driver.Lock()
-	i.driver.opened = append(i.driver.opened, i)
-	i.driver.Unlock()
+	me.driver.Lock()
+	me.driver.opened = append(me.driver.opened, me)
+	me.driver.Unlock()
 
 	return nil
 }
@@ -109,7 +109,7 @@ func newIn(driver *Driver, number int, name string, jsport js.Value) drivers.In 
 
 */
 
-func (i *in) Listen(onMsg func(msg []byte, milliseconds int32), config drivers.ListenConfig) (stopFn func(), err error) {
+func (me *in) Listen(onMsg func(msg []byte, milliseconds int32), config drivers.ListenConfig) (stopFn func(), err error) {
 
 	var stop int32
 
@@ -120,7 +120,7 @@ func (i *in) Listen(onMsg func(msg []byte, milliseconds int32), config drivers.L
 		//time.Sleep(stopWait)
 	}
 
-	i.Lock()
+	me.Lock()
 
 	var stopped int32
 
@@ -173,8 +173,8 @@ func (i *in) Listen(onMsg func(msg []byte, milliseconds int32), config drivers.L
 		return nil
 	})
 
-	go i.jsport.Call("addEventListener", "midimessage", jsCallback)
-	i.Unlock()
+	go me.jsport.Call("addEventListener", "midimessage", jsCallback)
+	me.Unlock()
 
 	return
 }

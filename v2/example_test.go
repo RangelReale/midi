@@ -71,8 +71,8 @@ func Example() {
 	stop, _ := ListenTo(in, eachMessage)
 
 	{ // send some messages
-		send(NoteOn(0, Db(5), 100))
-		send(NoteOff(0, Db(5)))
+		send(Db(5).NoteOn(0, 100)) // or NoteOn(0, Db(5).Value(), 100)
+		send(Db(5).NoteOff(0))     // or NoteOff(0, Db(5).Value())
 		send(Pitchbend(0, -12))
 		send(ProgramChange(1, gm.Instr_AcousticBass.Value()))
 		send(ControlChange(2, FootPedalMSB, On))

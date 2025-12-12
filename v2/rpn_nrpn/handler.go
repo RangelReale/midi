@@ -44,41 +44,41 @@ type Handler struct {
 	}
 }
 
-func (r *Handler) reset(ch uint8, isRPN bool) (handled bool) {
+func (me *Handler) reset(ch uint8, isRPN bool) (handled bool) {
 	// reset tracking on this channel
-	r.cache[ch] = [4]uint8{VAL_UNSET, VAL_UNSET, VAL_UNSET, VAL_UNSET}
+	me.cache[ch] = [4]uint8{VAL_UNSET, VAL_UNSET, VAL_UNSET, VAL_UNSET}
 
 	if isRPN {
-		if r.RPN.Reset != nil {
-			return r.RPN.Reset(ch)
+		if me.RPN.Reset != nil {
+			return me.RPN.Reset(ch)
 		}
 
 		return false
 	}
 
-	if r.NRPN.Reset != nil {
-		return r.NRPN.Reset(ch)
+	if me.NRPN.Reset != nil {
+		return me.NRPN.Reset(ch)
 	}
 
 	return false
 }
 
-func (r *Handler) hasRPNCallback() bool {
-	return !(r.RPN.MSB == nil && r.RPN.LSB == nil)
+func (me *Handler) hasRPNCallback() bool {
+	return !(me.RPN.MSB == nil && me.RPN.LSB == nil)
 }
 
-func (r *Handler) hasNRPNCallback() bool {
-	return !(r.NRPN.MSB == nil && r.NRPN.LSB == nil)
+func (me *Handler) hasNRPNCallback() bool {
+	return !(me.NRPN.MSB == nil && me.NRPN.LSB == nil)
 }
 
-func (r *Handler) hasNoRPNorNRPNCallback() bool {
-	return !r.hasRPNCallback() && !r.hasNRPNCallback()
+func (me *Handler) hasNoRPNorNRPNCallback() bool {
+	return !me.hasRPNCallback() && !me.hasNRPNCallback()
 }
 
 // ReadCCMessage reads a controller message, eventually resulting in a complete rpn / nrpn message.
 // handled is only true, if the rpn/nrpn was completed and handled, so while the message is being composed, handled is false.
 // This allows a simply way to pass the "not handled" data to the next handler (for a different channel of rpn/nrpn type).
-func (r *Handler) ReadCCMessage(ch, cc, val uint8) (handled bool) {
+func (me *Handler) ReadCCMessage(ch, cc, val uint8) (handled bool) {
 
 	switch cc {
 
@@ -100,120 +100,120 @@ func (r *Handler) ReadCCMessage(ch, cc, val uint8) (handled bool) {
 
 	// first identifier of a RPN/NRPN message
 	case CC_RPN0, CC_NRPN0:
-		if (cc == CC_RPN0 && !r.hasRPNCallback()) ||
-			(cc == CC_NRPN0 && !r.hasNRPNCallback()) {
+		if (cc == CC_RPN0 && !me.hasRPNCallback()) ||
+			(cc == CC_NRPN0 && !me.hasNRPNCallback()) {
 			return false
 		}
 
 		// RPN reset (127,127)
-		if val+r.cache[ch][3] == 2*VAL_SET {
-			return r.reset(ch, cc == CC_RPN0)
+		if val+me.cache[ch][3] == 2*VAL_SET {
+			return me.reset(ch, cc == CC_RPN0)
 		} else {
 			// register first ident cc
-			r.cache[ch][0] = cc
+			me.cache[ch][0] = cc
 			// track the first ident value
-			r.cache[ch][2] = val
+			me.cache[ch][2] = val
 		}
 
 	// second identifier of a RPN/NRPN message
 	case CC_RPN1, CC_NRPN1:
-		if (cc == CC_RPN1 && !r.hasRPNCallback()) ||
-			(cc == CC_NRPN1 && !r.hasNRPNCallback()) {
+		if (cc == CC_RPN1 && !me.hasRPNCallback()) ||
+			(cc == CC_NRPN1 && !me.hasNRPNCallback()) {
 			return false
 		}
 
 		// RPN reset (127,127)
-		if val+r.cache[ch][2] == 2*VAL_SET {
-			return r.reset(ch, cc == CC_RPN1)
+		if val+me.cache[ch][2] == 2*VAL_SET {
+			return me.reset(ch, cc == CC_RPN1)
 		} else {
 			// register second ident cc
-			r.cache[ch][1] = cc
+			me.cache[ch][1] = cc
 			// track the second ident value
-			r.cache[ch][3] = val
+			me.cache[ch][3] = val
 		}
 
 	// the data entry controller
 	case CC_MSB:
-		if r.hasNoRPNorNRPNCallback() {
+		if me.hasNoRPNorNRPNCallback() {
 			return false
 		}
 		switch {
 
 		// is a valid RPN
-		case r.cache[ch][0] == CC_RPN0 && r.cache[ch][1] == CC_RPN1:
-			if r.RPN.MSB != nil {
-				return r.RPN.MSB(ch, r.cache[ch][2], r.cache[ch][3], val)
+		case me.cache[ch][0] == CC_RPN0 && me.cache[ch][1] == CC_RPN1:
+			if me.RPN.MSB != nil {
+				return me.RPN.MSB(ch, me.cache[ch][2], me.cache[ch][3], val)
 			}
 
 		// is a valid NRPN
-		case r.cache[ch][0] == CC_NRPN0 && r.cache[ch][1] == CC_NRPN1:
-			if r.NRPN.MSB != nil {
-				return r.NRPN.MSB(ch, r.cache[ch][2], r.cache[ch][3], val)
+		case me.cache[ch][0] == CC_NRPN0 && me.cache[ch][1] == CC_NRPN1:
+			if me.NRPN.MSB != nil {
+				return me.NRPN.MSB(ch, me.cache[ch][2], me.cache[ch][3], val)
 			}
 
 		}
 
 	// the lsb
 	case CC_LSB:
-		if r.hasNoRPNorNRPNCallback() {
+		if me.hasNoRPNorNRPNCallback() {
 			return false
 		}
 
 		switch {
 
 		// is a valid RPN
-		case r.cache[ch][0] == CC_RPN0 && r.cache[ch][1] == CC_RPN1:
-			if r.RPN.LSB != nil {
-				return r.RPN.LSB(ch, r.cache[ch][2], r.cache[ch][3], val)
+		case me.cache[ch][0] == CC_RPN0 && me.cache[ch][1] == CC_RPN1:
+			if me.RPN.LSB != nil {
+				return me.RPN.LSB(ch, me.cache[ch][2], me.cache[ch][3], val)
 			}
 
 		// is a valid NRPN
-		case r.cache[ch][0] == CC_NRPN0 && r.cache[ch][1] == CC_NRPN1:
-			if r.NRPN.LSB != nil {
-				return r.NRPN.LSB(ch, r.cache[ch][2], r.cache[ch][3], val)
+		case me.cache[ch][0] == CC_NRPN0 && me.cache[ch][1] == CC_NRPN1:
+			if me.NRPN.LSB != nil {
+				return me.NRPN.LSB(ch, me.cache[ch][2], me.cache[ch][3], val)
 			}
 
 		}
 
 	// the increment
 	case CC_INC:
-		if r.RPN.Increment == nil && r.NRPN.Increment == nil {
+		if me.RPN.Increment == nil && me.NRPN.Increment == nil {
 			return false
 		}
 
 		switch {
 
 		// is a valid RPN
-		case r.cache[ch][0] == CC_RPN0 && r.cache[ch][1] == CC_RPN1:
-			if r.RPN.Increment != nil {
-				return r.RPN.Increment(ch, r.cache[ch][2], r.cache[ch][3])
+		case me.cache[ch][0] == CC_RPN0 && me.cache[ch][1] == CC_RPN1:
+			if me.RPN.Increment != nil {
+				return me.RPN.Increment(ch, me.cache[ch][2], me.cache[ch][3])
 			}
 
 		// is a valid NRPN
-		case r.cache[ch][0] == CC_NRPN0 && r.cache[ch][1] == CC_NRPN1:
-			if r.NRPN.Increment != nil {
-				return r.NRPN.Increment(ch, r.cache[ch][2], r.cache[ch][3])
+		case me.cache[ch][0] == CC_NRPN0 && me.cache[ch][1] == CC_NRPN1:
+			if me.NRPN.Increment != nil {
+				return me.NRPN.Increment(ch, me.cache[ch][2], me.cache[ch][3])
 			}
 
 		}
 
 	// the decrement
 	case CC_DEC:
-		if r.RPN.Decrement == nil && r.NRPN.Decrement == nil {
+		if me.RPN.Decrement == nil && me.NRPN.Decrement == nil {
 			return false
 		}
 
 		switch {
 		// is a valid RPN
-		case r.cache[ch][0] == CC_RPN0 && r.cache[ch][1] == CC_RPN1:
-			if r.RPN.Decrement != nil {
-				return r.RPN.Decrement(ch, r.cache[ch][2], r.cache[ch][3])
+		case me.cache[ch][0] == CC_RPN0 && me.cache[ch][1] == CC_RPN1:
+			if me.RPN.Decrement != nil {
+				return me.RPN.Decrement(ch, me.cache[ch][2], me.cache[ch][3])
 			}
 
 		// is a valid NRPN
-		case r.cache[ch][0] == CC_NRPN0 && r.cache[ch][1] == CC_NRPN1:
-			if r.NRPN.Decrement != nil {
-				return r.NRPN.Decrement(ch, r.cache[ch][2], r.cache[ch][3])
+		case me.cache[ch][0] == CC_NRPN0 && me.cache[ch][1] == CC_NRPN1:
+			if me.NRPN.Decrement != nil {
+				return me.NRPN.Decrement(ch, me.cache[ch][2], me.cache[ch][3])
 			}
 		}
 	}
