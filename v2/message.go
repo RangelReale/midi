@@ -246,7 +246,7 @@ func (me Message) GetProgramChange(channel, program *uint8) (is bool) {
 		return false
 	}
 
-	if len(me) != 2 {
+	if len(me) != 2 && len(me) != 3 { // be tolerant about [3]byte messages
 		return false
 	}
 
