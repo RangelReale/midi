@@ -394,7 +394,7 @@ func (me Message) GetSPP(spp *uint16) (is bool) {
 	}
 
 	if spp != nil {
-		_, *spp = utils.ParsePitchWheelVals(me[2], me[1])
+		_, *spp = utils.ParsePitchWheelVals(me[1], me[2])
 	}
 
 	return true
