@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"gitlab.com/gomidi/midi/v2/drivers"
+	"gitlab.com/gomidi/midi/v2/drivers/midicat"
 )
 
 func newOut(driver *Driver, number int, name string) drivers.Out {
@@ -66,7 +67,7 @@ func (me *out) Send(b []byte) error {
 		return drivers.ErrPortClosed
 	}
 	//fmt.Printf("% X\n", b)
-	_, err := fmt.Fprintf(me.wr, "%d %X\n", 0, b)
+	err := midicat.WriteAndConvert(me.wr, 0, b)
 	//_, err := fmt.Fprintf(o.wr, "%X\n", b)
 	if err != nil {
 		return err

@@ -78,6 +78,11 @@ func Read(rd io.Reader) (out []byte, deltams int32, err error) {
 	}
 }
 
+func WriteAndConvert(w io.Writer, timestampms int32, bt []byte) (err error) {
+	_, err = fmt.Fprintf(w, "%d %X\n", timestampms, bt)
+	return
+}
+
 func ReadAndConvert(rd io.Reader) (out []byte, deltams int32, err error) {
 	out, deltams, err = Read(rd)
 	if err != nil {
