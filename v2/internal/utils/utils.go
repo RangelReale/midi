@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -142,7 +143,7 @@ func ReadNBytes(n int, rd io.Reader) ([]byte, error) {
 	num, err := rd.Read(b)
 
 	// if num is correct, we are not interested in io.EOF errors
-	if num == n {
+	if errors.Is(err, io.EOF) && num == n {
 		err = nil
 	}
 
