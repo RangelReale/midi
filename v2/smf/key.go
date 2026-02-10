@@ -17,6 +17,38 @@ func key(key, num uint8, isMajor, isFlat bool) Message {
 	return MetaKey(key, isMajor, num, isFlat)
 }
 
+func CsharpMaj() Message {
+	return key(1, 7, true, false)
+}
+
+func init() {
+	keyStrings[Key{Key: 1, Num: 7, IsMajor: true, IsFlat: false}] = "CsharpMaj"
+}
+
+func CbMaj() Message {
+	return key(1, 7, true, true)
+}
+
+func init() {
+	keyStrings[Key{Key: 1, Num: 7, IsMajor: true, IsFlat: true}] = "CbMaj"
+}
+
+func AsharpMin() Message {
+	return key(10, 7, false, false)
+}
+
+func init() {
+	keyStrings[Key{Key: 10, Num: 7, IsMajor: false, IsFlat: false}] = "AsharpMin"
+}
+
+func AbMin() Message {
+	return key(8, 7, false, true)
+}
+
+func init() {
+	keyStrings[Key{Key: 8, Num: 7, IsMajor: false, IsFlat: true}] = "AbMin"
+}
+
 // CMaj returns the MIDI key signature meta message for C Major
 func CMaj() Message {
 	return key(0, 0, true, false)
