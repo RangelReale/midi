@@ -5,6 +5,7 @@ import (
 	"io"
 	"runtime"
 	"sort"
+	"sync"
 	"time"
 
 	"reflect"
@@ -84,10 +85,12 @@ func (me *Track) SendTo(resolution MetricTicks, tc TempoChanges, receiver func(m
 }
 
 type TracksReader struct {
-	smf    *SMF
-	tracks map[int]bool
-	filter []midi.Type
-	err    error
+	smf       *SMF
+	tracks    map[int]bool
+	filter    []midi.Type
+	err       error
+	mx        sync.RWMutex
+	isPlaying bool
 }
 
 func (me *TracksReader) Error() error {
@@ -104,6 +107,18 @@ func (me *TracksReader) doTrack(tr int) bool {
 	}
 
 	return me.tracks[tr]
+}
+
+func (me *TracksReader) StopPlaying() {
+	me.mx.RLock()
+	isPlaying := me.isPlaying
+	me.mx.RUnlock()
+	if !isPlaying {
+		return
+	}
+	me.mx.Lock()
+	defer me.mx.Unlock()
+	me.isPlaying = false
 }
 
 func ReadTracks(filepath string, tracks ...int) *TracksReader {
@@ -249,8 +264,18 @@ func (me *TracksReader) MultiPlay(trackouts map[int]drivers.Out) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	me.mx.Lock()
+	me.isPlaying = true
+	me.mx.Unlock()
+
 	for i := range pl {
 		last = me.play(last, pl[i])
+		me.mx.RLock()
+		isPlaying := me.isPlaying
+		me.mx.RUnlock()
+		if !isPlaying {
+			return me.err
+		}
 	}
 
 	return me.err
