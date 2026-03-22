@@ -1,6 +1,7 @@
 package smf
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -40,8 +41,19 @@ func Log(l Logger) ReadOption {
 	}
 }
 
+func WithCustomChunkReader(r CustomChunkReader) ReadOption {
+	return func(c *readConfig) {
+		c.CustomChunkReader = r
+	}
+}
+
+type CustomChunkReader interface {
+	ReadChunk(typ string, length uint32, r io.Reader) error
+}
+
 type readConfig struct {
-	Logger Logger
+	Logger            Logger
+	CustomChunkReader CustomChunkReader
 }
 
 // ReadFrom reads a SMF from the given io.Reader
@@ -55,6 +67,7 @@ func ReadFrom(f io.Reader, opts ...ReadOption) (*SMF, error) {
 
 	rd := newReader(f)
 	rd.Logger = c.Logger
+	rd.CustomChunkReader = c.CustomChunkReader
 
 	err := rd.ReadHeader()
 
@@ -118,7 +131,8 @@ type reader struct {
 	headerIsRead        bool
 
 	*SMF
-	Logger Logger
+	Logger            Logger
+	CustomChunkReader CustomChunkReader
 
 	input         *readerCounter
 	runningStatus runningstatus.Reader
@@ -295,8 +309,21 @@ func (me *reader) readChunk() {
 		}
 	} else if me.expectedChunkLength > 0 {
 		// The header is of an unknown type, skip over it.
-		_, me.error = io.CopyN(ioutil.Discard, me.input, int64(me.expectedChunkLength))
-		me.log("skipping chunk: %v", me.error)
+		if me.CustomChunkReader != nil {
+			var cd bytes.Buffer
+			_, me.error = io.CopyN(&cd, me.input, int64(me.expectedChunkLength))
+			if me.error != nil {
+				return
+			}
+
+			me.error = me.CustomChunkReader.ReadChunk(chunk.Type(), me.expectedChunkLength, bytes.NewReader(cd.Bytes()))
+			if me.error != nil {
+				return
+			}
+		} else {
+			_, me.error = io.CopyN(ioutil.Discard, me.input, int64(me.expectedChunkLength))
+			me.log("skipping chunk: %v", me.error)
+		}
 		if me.error != nil {
 			return
 		}
